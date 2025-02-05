@@ -8,7 +8,7 @@ interface ProjectUtilizationModalProps {
 }
 
 export const ProjectUtilizationDetails: React.FC<ProjectUtilizationModalProps> = ({ details, onClose }) => {
-  if (!details) return null;
+  if (!details || !details.project) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -39,7 +39,7 @@ export const ProjectUtilizationDetails: React.FC<ProjectUtilizationModalProps> =
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-2">Team Member Breakdown</h4>
             <div className="space-y-2">
-              {details.users.map(user => (
+              {details.users && details.users.map(user => (
                 <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-[#1732ca]/10 rounded-lg">
@@ -52,6 +52,9 @@ export const ProjectUtilizationDetails: React.FC<ProjectUtilizationModalProps> =
                   <span>{user.hours} hours</span>
                 </div>
               ))}
+              {(!details.users || details.users.length === 0) && (
+                <p className="text-center text-gray-500 py-4">No team members found</p>
+              )}
             </div>
           </div>
         </div>

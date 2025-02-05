@@ -38,6 +38,58 @@ const PROJECT_COLORS = [
   COLORS.pale
 ];
 
+const fetchProjectDetails = async (project: Project) => {
+  try {
+    const [usersResponse, timesheetsResponse] = await Promise.all([
+      supabase
+        .from('project_users')
+        .select('user:users(*)')
+        .eq('project_id', project.id),
+      supabase
+        .from('timesheets')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('submitted_at', { ascending: false })
+        .limit(10)
+    ]);
+
+    const users = usersResponse.data?.map(pu => ({
+      id: pu.user.id,
+      name: pu.user.full_name || pu.user.username,
+      hours: 0 // We'll calculate this from timesheets
+    })) || [];
+
+    const timesheets = timesheetsResponse.data || [];
+
+    // Calculate hours per user
+    timesheets.forEach(timesheet => {
+      const user = users.find(u => u.id === timesheet.user_id);
+      if (user) {
+        user.hours += timesheet.total_hours || 0;
+      }
+    });
+
+    const totalHoursUsed = timesheets.reduce((sum, ts) => 
+      sum + (ts.total_hours || 0), 0
+    );
+
+    return {
+      project: {
+        ...project,
+        totalHours: totalHoursUsed,
+        utilization: (totalHoursUsed / project.allocated_hours) * 100
+      },
+      users,
+      timesheets,
+      totalHoursUsed,
+      hoursRemaining: project.allocated_hours - totalHoursUsed
+    };
+  } catch (error) {
+    console.error('Error fetching project details:', error);
+    throw new Error('Failed to load project details');
+  }
+};
+
 export const Overview = () => {
   const { user } = useAuthStore();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -280,6 +332,15 @@ export const Overview = () => {
     fetchData();
   }, [user, selectedMonth]);
 
+  const handleProjectClick = async (project: Project) => {
+    try {
+      const details = await fetchProjectDetails(project);
+      setSelectedProject(details);
+    } catch (error) {
+      setError('Failed to load project details');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -363,7 +424,7 @@ export const Overview = () => {
           <div className="space-y-6">
             <ProjectUtilization
               projects={projects}
-              onProjectClick={setSelectedProject}
+              onProjectClick={handleProjectClick}
             />
             <UserHoursList
               userHours={userHours}
