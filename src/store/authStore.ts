@@ -41,12 +41,38 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        set({ user: null });
+        return new Promise<void>((resolve) => {
+          set({ user: null });
+          // Clear any persisted state
+          localStorage.removeItem('auth-storage');
+          resolve();
+        });
       },
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user }),
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          try {
+            const state = JSON.parse(str);
+            // Validate the stored state
+            if (state && state.state && typeof state.state === 'object') {
+              return str;
+            }
+            // If invalid, clear it
+            localStorage.removeItem(name);
+            return null;
+          } catch {
+            localStorage.removeItem(name);
+            return null;
+          }
+        },
+        setItem: (name, value) => localStorage.setItem(name, value),
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 );

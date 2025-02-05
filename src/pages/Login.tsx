@@ -11,8 +11,15 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Clear any stale auth state on mount
+    if (window.location.pathname === '/eHAT') {
+      localStorage.removeItem('auth-storage');
+    }
+  }, []);
+
+  useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [user, navigate]);
 
@@ -27,7 +34,7 @@ export const Login: React.FC = () => {
   };
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -62,8 +69,8 @@ export const Login: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
               <p>{error}</p>
             </div>
           )}
