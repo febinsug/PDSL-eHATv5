@@ -11,13 +11,6 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Clear any stale auth state on mount
-    if (window.location.pathname === '/eHAT') {
-      localStorage.removeItem('auth-storage');
-    }
-  }, []);
-
-  useEffect(() => {
     if (user) {
       navigate('/', { replace: true });
     }

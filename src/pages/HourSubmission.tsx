@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { startOfWeek, endOfWeek, format, addDays, subWeeks, addWeeks, parseISO } from 'date-fns';
+import { startOfWeek, endOfWeek, format, addDays, subWeeks, addWeeks, parseISO, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Project, Timesheet } from '../types';
-import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { SubmissionForm } from '../components/hourSubmission/SubmissionForm';
+import { SubmissionHistory } from '../components/hourSubmission/SubmissionHistory';
 
 interface TimesheetWithProject extends Timesheet {
   project: Project;
@@ -52,6 +54,7 @@ const ApprovedWeekWarning: React.FC<{
 export const HourSubmission = () => {
   const { user } = useAuthStore();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [projects, setProjects] = useState<Project[]>([]);
   const [hours, setHours] = useState<Record<string, Record<string, number>>>({});
   const [loading, setLoading] = useState(true);
@@ -67,6 +70,7 @@ export const HourSubmission = () => {
     weekNumber: 0,
     year: 0
   });
+  const [expandedTimesheets, setExpandedTimesheets] = useState<string[]>([]);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -74,6 +78,14 @@ export const HourSubmission = () => {
   const year = parseInt(format(weekStart, 'yyyy'));
 
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+
+  const toggleTimesheet = (timesheetId: string) => {
+    setExpandedTimesheets(prev => 
+      prev.includes(timesheetId)
+        ? prev.filter(id => id !== timesheetId)
+        : [...prev, timesheetId]
+    );
+  };
 
   useEffect(() => {
     const weeks = [];
@@ -137,7 +149,10 @@ export const HourSubmission = () => {
         });
         setHours(hoursMap);
 
-        // Fetch submitted timesheets with project details
+        // Fetch submitted timesheets for the selected month
+        const monthStart = startOfMonth(selectedMonth);
+        const monthEnd = endOfMonth(selectedMonth);
+
         const { data: submittedData } = await supabase
           .from('timesheets')
           .select(`
@@ -145,8 +160,9 @@ export const HourSubmission = () => {
             project:projects(*)
           `)
           .eq('user_id', user.id)
-          .order('submitted_at', { ascending: false })
-          .limit(10);
+          .gte('submitted_at', monthStart.toISOString())
+          .lte('submitted_at', monthEnd.toISOString())
+          .order('submitted_at', { ascending: false });
 
         setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
       } catch (error) {
@@ -158,7 +174,7 @@ export const HourSubmission = () => {
     };
 
     fetchData();
-  }, [user, weekNumber, year]);
+  }, [user, weekNumber, year, selectedMonth]);
 
   const handleHourChange = (projectId: string, day: string, value: string) => {
     const numValue = value === '' ? 0 : parseFloat(value);
@@ -279,6 +295,9 @@ export const HourSubmission = () => {
       }
 
       // Refresh submitted timesheets
+      const monthStart = startOfMonth(selectedMonth);
+      const monthEnd = endOfMonth(selectedMonth);
+
       const { data: submittedData } = await supabase
         .from('timesheets')
         .select(`
@@ -286,8 +305,9 @@ export const HourSubmission = () => {
           project:projects(*)
         `)
         .eq('user_id', user.id)
-        .order('submitted_at', { ascending: false })
-        .limit(10);
+        .gte('submitted_at', monthStart.toISOString())
+        .lte('submitted_at', monthEnd.toISOString())
+        .order('submitted_at', { ascending: false });
 
       setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
       setSuccess(true);
@@ -311,20 +331,6 @@ export const HourSubmission = () => {
       setSelectedDate(selectedWeekData.startDate);
       setApprovedWeekDialog({ show: false, weekNumber: 0, year: 0 });
     }
-  };
-
-  const calculateTotalHours = (timesheet: Timesheet) => {
-    return (
-      timesheet.monday_hours +
-      timesheet.tuesday_hours +
-      timesheet.wednesday_hours +
-      timesheet.thursday_hours +
-      timesheet.friday_hours
-    );
-  };
-
-  const calculateWeeklyTotal = (projectHours: Record<string, number>) => {
-    return Object.values(projectHours).reduce((sum, hours) => sum + (hours || 0), 0);
   };
 
   const handleEditTimesheet = (timesheet: TimesheetWithProject) => {
@@ -431,78 +437,12 @@ export const HourSubmission = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="py-4 px-6 text-left text-sm font-semibold text-gray-900 w-1/4">Project</th>
-                {weekDays.map(day => (
-                  <th key={day.toString()} className="py-4 px-6 text-center w-1/6">
-                    <div className="text-sm font-semibold text-gray-900">{format(day, 'EEE')}</div>
-                    <div className="text-xs text-gray-500 mt-1">{format(day, 'MMM d')}</div>
-                  </th>
-                ))}
-                <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900 w-1/6">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {projects.map(project => {
-                const projectHours = hours[project.id] || {};
-                const total = calculateWeeklyTotal(projectHours);
-
-                return (
-                  <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#1732ca]/10 rounded-lg">
-                          <Clock className="w-5 h-5 text-[#1732ca]" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{project.name}</div>
-                          <div className="text-sm text-gray-500">{project.allocated_hours} hours allocated</div>
-                        </div>
-                      </div>
-                    </td>
-                    {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map(day => (
-                      <td key={day} className="py-4 px-6">
-                        <div className="flex justify-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="24"
-                            step="0.5"
-                            value={projectHours[`${day}_hours`] || ''}
-                            onChange={e => handleHourChange(project.id, day, e.target.value)}
-                            className="w-20 text-center rounded-lg border-gray-300 shadow-sm
-                              focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
-                              hover:border-gray-400 transition-colors
-                              placeholder-gray-400"
-                            placeholder="0.0"
-                          />
-                        </div>
-                      </td>
-                    ))}
-                    <td className="py-4 px-6 text-center">
-                      <div className="inline-flex items-center justify-center min-w-[3rem] px-3 py-1 bg-[#1732ca]/10 rounded-full">
-                        <span className="font-semibold text-[#1732ca]">{total}</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {projects.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm">No projects found</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <SubmissionForm
+        projects={projects}
+        hours={hours}
+        weekDays={weekDays}
+        handleHourChange={handleHourChange}
+      />
 
       <div className="flex justify-end">
         <button
@@ -517,94 +457,14 @@ export const HourSubmission = () => {
         </button>
       </div>
 
-      {/* Submitted Timesheets Section */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Submissions</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Week
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Hours
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notes
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {submittedTimesheets.map(timesheet => (
-                <tr key={timesheet.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    Week {timesheet.week_number}, {timesheet.year}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {timesheet.project.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {calculateTotalHours(timesheet)} hours
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      timesheet.status === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : timesheet.status === 'rejected'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {timesheet.status === 'approved' && <CheckCircle className="w-3 h-3" />}
-                      {timesheet.status === 'rejected' && <XCircle className="w-3 h-3" />}
-                      {timesheet.status === 'pending' && <Clock className="w-3 h-3" />}
-                      {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    {timesheet.rejection_reason && (
-                      <div className="text-sm text-red-600">
-                        {timesheet.rejection_reason}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    {timesheet.status !== 'approved' && (
-                      <button
-                        onClick={() => handleEditTimesheet(timesheet)}
-                        className="text-[#1732ca] hover:text-[#1732ca]/80 text-sm font-medium"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {submittedTimesheets.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm">No submissions found</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <SubmissionHistory
+        timesheets={submittedTimesheets}
+        selectedMonth={selectedMonth}
+        expandedTimesheets={expandedTimesheets}
+        onToggleTimesheet={toggleTimesheet}
+        onEditTimesheet={handleEditTimesheet}
+        onMonthChange={setSelectedMonth}
+      />
 
       {/* Confirmation Dialog */}
       {showConfirmation && (

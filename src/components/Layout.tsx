@@ -34,22 +34,15 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon, label, active }) =>
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
-  // If no user is logged in, redirect to login
+  // Check for auth on every render
   if (!user) {
     return <Navigate to="/eHAT" replace />;
   }
 
   const isAdmin = user.role === 'admin';
   const isManagerOrAdmin = user.role === 'manager' || isAdmin;
-
-  const handleLogout = (e: React.MouseEvent) => {
-    e.preventDefault();
-    logout().then(() => {
-      window.location.href = '/eHAT'; // Force a full page reload to clear all state
-    });
-  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -125,7 +118,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             active={location.pathname === '/settings'}
           />
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              const { logout } = useAuthStore.getState();
+              logout();
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/80 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
           >
             <LogOut className="w-5 h-5" />

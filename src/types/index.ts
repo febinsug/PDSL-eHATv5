@@ -1,5 +1,11 @@
 import type { User, Project, Timesheet, Client } from './models';
 
+export interface TimesheetWithDetails extends Timesheet {
+  user: User;
+  project: Project;
+  approver?: User;
+}
+
 export interface ProjectWithUtilization extends Project {
   totalHours: number;
   utilization: number;

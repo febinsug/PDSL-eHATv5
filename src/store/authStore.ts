@@ -1,20 +1,50 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 import type { User } from '../types';
 
 interface AuthState {
   user: User | null;
   loading: boolean;
+  initialized: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  hydrate: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       loading: false,
+      initialized: false,
+
+      hydrate: async () => {
+        try {
+          const state = localStorage.getItem('auth-storage');
+          if (state) {
+            const { state: { user } } = JSON.parse(state);
+            if (user) {
+              // Verify user still exists
+              const { data } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+              
+              if (data) {
+                const { password_hash, ...userData } = data;
+                set({ user: userData, initialized: true });
+                return;
+              }
+            }
+          }
+          set({ user: null, initialized: true });
+        } catch (error) {
+          console.error('Hydration error:', error);
+          set({ user: null, initialized: true });
+        }
+      },
 
       login: async (username: string, password: string) => {
         set({ loading: true });
@@ -31,7 +61,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const { password_hash, ...user } = users;
-          set({ user });
+          set({ user, initialized: true });
         } catch (error) {
           console.error('Login error:', error);
           throw error;
@@ -41,38 +71,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        return new Promise<void>((resolve) => {
-          set({ user: null });
-          // Clear any persisted state
-          localStorage.removeItem('auth-storage');
-          resolve();
-        });
+        set({ user: null, initialized: true });
+        localStorage.removeItem('auth-storage');
       },
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ user: state.user }),
-      storage: {
-        getItem: (name) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          try {
-            const state = JSON.parse(str);
-            // Validate the stored state
-            if (state && state.state && typeof state.state === 'object') {
-              return str;
-            }
-            // If invalid, clear it
-            localStorage.removeItem(name);
-            return null;
-          } catch {
-            localStorage.removeItem(name);
-            return null;
-          }
-        },
-        setItem: (name, value) => localStorage.setItem(name, value),
-        removeItem: (name) => localStorage.removeItem(name),
-      },
     }
   )
 );

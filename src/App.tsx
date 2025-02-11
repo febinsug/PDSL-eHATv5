@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -8,8 +8,15 @@ import { Projects } from './pages/Projects';
 import { Approvals } from './pages/Approvals';
 import { People } from './pages/People';
 import { Settings } from './pages/Settings';
+import { useAuthStore } from './store/authStore';
 
 function App() {
+  const { hydrate } = useAuthStore();
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
   return (
     <BrowserRouter>
       <Routes>
