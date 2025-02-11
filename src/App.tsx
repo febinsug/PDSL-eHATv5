@@ -8,6 +8,7 @@ import { Projects } from './pages/Projects';
 import { Approvals } from './pages/Approvals';
 import { People } from './pages/People';
 import { Settings } from './pages/Settings';
+import { Team } from './pages/Team';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -39,6 +40,11 @@ function App() {
         <Route path="/approvals" element={
           <Layout>
             <Approvals />
+          </Layout>
+        } />
+        <Route path="/team" element={
+          <Layout>
+            <Team />
           </Layout>
         } />
         <Route path="/people" element={

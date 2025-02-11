@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   CheckSquare,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -79,12 +80,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 label="Approvals"
                 active={location.pathname === '/approvals'}
               />
+              {user.role === 'manager' && (
+                <SidebarItem
+                  to="/team"
+                  icon={<Users className="w-5 h-5" />}
+                  label="Team"
+                  active={location.pathname === '/team'}
+                />
+              )}
             </>
           )}
           {isAdmin && (
             <SidebarItem
               to="/people"
-              icon={<Users className="w-5 h-5" />}
+              icon={<UserPlus className="w-5 h-5" />}
               label="People"
               active={location.pathname === '/people'}
             />

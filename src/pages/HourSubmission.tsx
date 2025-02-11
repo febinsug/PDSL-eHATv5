@@ -160,9 +160,8 @@ export const HourSubmission = () => {
             project:projects(*)
           `)
           .eq('user_id', user.id)
-          .gte('submitted_at', monthStart.toISOString())
-          .lte('submitted_at', monthEnd.toISOString())
-          .order('submitted_at', { ascending: false });
+          .eq('year', format(selectedMonth, 'yyyy'))
+          .order('week_number', { ascending: false });
 
         setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
       } catch (error) {
@@ -295,9 +294,6 @@ export const HourSubmission = () => {
       }
 
       // Refresh submitted timesheets
-      const monthStart = startOfMonth(selectedMonth);
-      const monthEnd = endOfMonth(selectedMonth);
-
       const { data: submittedData } = await supabase
         .from('timesheets')
         .select(`
@@ -305,9 +301,8 @@ export const HourSubmission = () => {
           project:projects(*)
         `)
         .eq('user_id', user.id)
-        .gte('submitted_at', monthStart.toISOString())
-        .lte('submitted_at', monthEnd.toISOString())
-        .order('submitted_at', { ascending: false });
+        .eq('year', format(selectedMonth, 'yyyy'))
+        .order('week_number', { ascending: false });
 
       setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
       setSuccess(true);

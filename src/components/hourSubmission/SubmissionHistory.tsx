@@ -2,6 +2,7 @@ import React from 'react';
 import { format, parseISO, subMonths, addMonths } from 'date-fns';
 import { Clock, ChevronUp, ChevronDown, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TimesheetBreakdown } from '../shared/TimesheetBreakdown';
+import { calculateTotalHours, isTimesheetInMonth } from '../../utils/timesheet';
 import type { TimesheetWithProject } from '../../types';
 
 interface SubmissionHistoryProps {
@@ -21,6 +22,9 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
   onEditTimesheet,
   onMonthChange,
 }) => {
+  // Filter timesheets to only show those that belong to the selected month
+  const filteredTimesheets = timesheets.filter(timesheet => isTimesheetInMonth(timesheet, selectedMonth));
+
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
       <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -69,7 +73,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {timesheets.map(timesheet => (
+            {filteredTimesheets.map(timesheet => (
               <React.Fragment key={timesheet.id}>
                 <tr className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -81,7 +85,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {timesheet.total_hours} hours
+                    {calculateTotalHours(timesheet)} hours
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -137,7 +141,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                 </tr>
               </React.Fragment>
             ))}
-            {timesheets.length === 0 && (
+            {filteredTimesheets.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                   <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />

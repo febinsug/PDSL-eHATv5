@@ -1,4 +1,5 @@
-import { Timesheet } from '../types';
+import { startOfWeek, addDays } from 'date-fns';
+import type { Timesheet } from '../types';
 
 export const calculateTotalHours = (timesheet: Timesheet) => {
   return (
@@ -52,4 +53,27 @@ export const filterTimesheets = (timesheets: any[], filterOptions: any) => {
     }
     return true;
   });
+};
+
+export const isTimesheetInMonth = (timesheet: Timesheet, selectedMonth: Date) => {
+  // Get the first day of the week for this timesheet
+  const weekStart = startOfWeek(
+    new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7),
+    { weekStartsOn: 1 }
+  );
+
+  // Check if any day of the week falls in the selected month and year
+  let daysInSelectedMonth = 0;
+  for (let i = 0; i < 7; i++) {
+    const currentDay = addDays(weekStart, i);
+    if (
+      currentDay.getMonth() === selectedMonth.getMonth() &&
+      currentDay.getFullYear() === selectedMonth.getFullYear()
+    ) {
+      daysInSelectedMonth++;
+    }
+  }
+
+  // Return true if at least 3 days of the week fall in the selected month
+  return daysInSelectedMonth >= 3;
 };

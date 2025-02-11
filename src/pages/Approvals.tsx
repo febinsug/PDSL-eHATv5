@@ -30,6 +30,13 @@ interface RejectionDialog {
   reason: string;
 }
 
+interface ConfirmationDialog {
+  show: boolean;
+  title: string;
+  message: string;
+  action: () => Promise<void>;
+}
+
 export const Approvals = () => {
   const { user } = useAuthStore();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -42,6 +49,12 @@ export const Approvals = () => {
     show: false,
     timesheetId: '',
     reason: ''
+  });
+  const [confirmation, setConfirmation] = useState<ConfirmationDialog>({
+    show: false,
+    title: '',
+    message: '',
+    action: async () => {},
   });
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -201,6 +214,42 @@ export const Approvals = () => {
     }
   };
 
+  const handleRevertStatus = (timesheet: TimesheetWithDetails) => {
+    setConfirmation({
+      show: true,
+      title: 'Revert Timesheet Status',
+      message: `Are you sure you want to change the status of this timesheet back to pending? This will remove the approval and require the timesheet to be approved again.`,
+      action: async () => {
+        try {
+          const { error } = await supabase
+            .from('timesheets')
+            .update({
+              status: 'pending',
+              approved_by: null,
+              approved_at: null
+            })
+            .eq('id', timesheet.id);
+
+          if (error) throw error;
+
+          setApprovedTimesheets(prev => prev.filter(t => t.id !== timesheet.id));
+          setManagerTimesheets(prev => [...prev, {
+            ...timesheet,
+            status: 'pending',
+            approver: null,
+            approved_at: null
+          }]);
+        } catch (error) {
+          console.error('Error reverting timesheet status:', error);
+          setErrors(prev => [...prev, {
+            timesheetId: timesheet.id,
+            message: 'Failed to revert timesheet status'
+          }]);
+        }
+      },
+    });
+  };
+
   const handleSort = (field: string) => {
     setSortOption(prev => ({
       field,
@@ -297,8 +346,6 @@ export const Approvals = () => {
           onApprove={handleApproval}
         />
 
-      
-
         <ApprovedTimesheets
           timesheets={sortedApprovedTimesheets}
           selectedTimesheets={selectedTimesheets}
@@ -322,6 +369,7 @@ export const Approvals = () => {
           onSort={handleSort}
           onShowFilter={() => setShowFilterDialog(true)}
           onDownload={downloadSelectedTimesheets}
+          onRevertStatus={handleRevertStatus}
         />
       </div>
 
@@ -359,6 +407,32 @@ export const Approvals = () => {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
                 Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmation.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">{confirmation.title}</h3>
+            <p className="text-gray-600 mb-6">{confirmation.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmation(prev => ({ ...prev, show: false }))}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await confirmation.action();
+                  setConfirmation(prev => ({ ...prev, show: false }));
+                }}
+                className="px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+              >
+                Confirm
               </button>
             </div>
           </div>

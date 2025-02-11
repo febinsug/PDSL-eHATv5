@@ -204,31 +204,41 @@ export const Overview = () => {
 
         // Calculate weekly data
         const weeklyChartData = user.role === 'user'
-          ? monthTimesheets.reduce((acc: any[], timesheet) => {
-              const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
-              if (weekIndex === -1) {
-                acc.push({
-                  week: `Week ${timesheet.week_number}`,
-                  hours: timesheet.total_hours || 0,
-                });
-              } else {
-                acc[weekIndex].hours += timesheet.total_hours || 0;
-              }
-              return acc;
-            }, [])
-          : monthTimesheets.reduce((acc: any[], timesheet) => {
-              const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
-              if (weekIndex === -1) {
-                const weekData: any = { week: `Week ${timesheet.week_number}` };
-                activeProjects.forEach(p => {
-                  weekData[p.name] = timesheet.project.id === p.id ? (timesheet.total_hours || 0) : 0;
-                });
-                acc.push(weekData);
-              } else {
-                acc[weekIndex][timesheet.project.name] = (acc[weekIndex][timesheet.project.name] || 0) + (timesheet.total_hours || 0);
-              }
-              return acc;
-            }, []);
+          ? monthTimesheets
+              .reduce((acc: any[], timesheet) => {
+                const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
+                if (weekIndex === -1) {
+                  acc.push({
+                    week: `Week ${timesheet.week_number}`,
+                    weekNum: timesheet.week_number,
+                    hours: timesheet.total_hours || 0,
+                  });
+                } else {
+                  acc[weekIndex].hours += timesheet.total_hours || 0;
+                }
+                return acc;
+              }, [])
+              .sort((a, b) => a.weekNum - b.weekNum)
+              .map(({ week, hours }) => ({ week, hours }))
+          : monthTimesheets
+              .reduce((acc: any[], timesheet) => {
+                const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
+                if (weekIndex === -1) {
+                  const weekData: any = {
+                    week: `Week ${timesheet.week_number}`,
+                    weekNum: timesheet.week_number,
+                  };
+                  activeProjects.forEach(p => {
+                    weekData[p.name] = timesheet.project.id === p.id ? (timesheet.total_hours || 0) : 0;
+                  });
+                  acc.push(weekData);
+                } else {
+                  acc[weekIndex][timesheet.project.name] = (acc[weekIndex][timesheet.project.name] || 0) + (timesheet.total_hours || 0);
+                }
+                return acc;
+              }, [])
+              .sort((a, b) => a.weekNum - b.weekNum)
+              .map(({ week, weekNum, ...rest }) => ({ week, ...rest }));
 
         setWeeklyData(weeklyChartData);
 

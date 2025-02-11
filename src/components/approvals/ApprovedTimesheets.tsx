@@ -1,8 +1,9 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { Download, Filter, SortAsc, SortDesc, ChevronUp, ChevronDown } from 'lucide-react';
+import { Download, Filter, SortAsc, SortDesc, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 import { TimesheetBreakdown } from '../shared/TimesheetBreakdown';
 import { calculateTotalHours } from '../../utils/timesheet';
+import { useAuthStore } from '../../store/authStore';
 import type { TimesheetWithDetails } from '../../types';
 
 interface ApprovedTimesheetsProps {
@@ -16,6 +17,7 @@ interface ApprovedTimesheetsProps {
   onSort: (field: string) => void;
   onShowFilter: () => void;
   onDownload: () => void;
+  onRevertStatus: (timesheet: TimesheetWithDetails) => void;
 }
 
 export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
@@ -29,7 +31,11 @@ export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
   onSort,
   onShowFilter,
   onDownload,
+  onRevertStatus,
 }) => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -165,16 +171,27 @@ export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button
-                      onClick={() => onToggleTimesheet(timesheet.id)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      {expandedTimesheets.includes(timesheet.id) ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => onToggleTimesheet(timesheet.id)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        {expandedTimesheets.includes(timesheet.id) ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onRevertStatus(timesheet)}
+                          className="text-[#1732ca] hover:text-[#1732ca]/80"
+                          title="Revert to pending"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </td>
                 </tr>
                 {expandedTimesheets.includes(timesheet.id) && (
