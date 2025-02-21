@@ -33,7 +33,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon, label, active }) =>
   </Link>
 );
 
-export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const { user } = useAuthStore();
 
@@ -112,9 +112,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <p className="text-sm font-medium text-white truncate">
                   {user.full_name || user.username}
                 </p>
-                <div className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-xs font-medium capitalize whitespace-nowrap truncate max-w-[120px]"
-                  style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
-                  {user.role}
+                <div className="flex flex-col mt-1">
+                  {user.role === 'admin' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white">
+                      Administrator
+                    </span>
+                  ) : user.role === 'manager' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white">
+                      Manager
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white break-words max-w-[150px]">
+                      {user.designation || 'Employee'}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -145,3 +156,5 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     </div>
   );
 };
+
+export { Layout };

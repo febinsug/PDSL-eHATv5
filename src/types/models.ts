@@ -7,6 +7,17 @@ export interface User {
   full_name: string | null;
   email: string | null;
   manager_id: string | null;
+  department_id: string | null;
+  designation: string | null;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
 }
 
 export interface Client {
@@ -30,23 +41,4 @@ export interface Project {
   client_id: string;
   client?: Client;
   completed_at?: string | null;
-}
-
-export interface Timesheet {
-  id: string;
-  user_id: string;
-  project_id: string;
-  week_number: number;
-  year: number;
-  monday_hours: number;
-  tuesday_hours: number;
-  wednesday_hours: number;
-  thursday_hours: number;
-  friday_hours: number;
-  total_hours: number;
-  status: string;
-  submitted_at: string;
-  approved_by?: string;
-  approved_at?: string;
-  rejection_reason?: string;
 }

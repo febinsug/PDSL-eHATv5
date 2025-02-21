@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { FilterDialog } from '../components/approvals/FilterDialog';
 import { PendingApprovals } from '../components/approvals/PendingApprovals';
 import { ApprovedTimesheets } from '../components/approvals/ApprovedTimesheets';
-import { filterTimesheets, sortTimesheets } from '../utils/timesheet';
+import { filterTimesheets, sortTimesheets, isTimesheetInMonth } from '../utils/timesheet';
 import type { User, Project, TimesheetWithDetails } from '../types';
 
 interface FilterOptions {
@@ -69,7 +69,7 @@ export const Approvals = () => {
     }
   });
   const [sortOption, setSortOption] = useState<SortOption>({
-    field: 'submitted_at',
+    field: 'week_number',
     direction: 'desc'
   });
   const [selectedTimesheets, setSelectedTimesheets] = useState<string[]>([]);
@@ -83,9 +83,6 @@ export const Approvals = () => {
     if (!user) return;
 
     try {
-      const monthStart = startOfMonth(selectedMonth);
-      const monthEnd = endOfMonth(selectedMonth);
-
       // Fetch users and projects for filtering
       const [usersResponse, projectsResponse] = await Promise.all([
         supabase.from('users').select('*'),
@@ -99,12 +96,22 @@ export const Approvals = () => {
         .from('timesheets')
         .select(`
           *,
-          user:users!timesheets_user_id_fkey(id, username, full_name, role),
+          user:users!timesheets_user_id_fkey(
+            id, 
+            username, 
+            full_name, 
+            role,
+            designation
+          ),
           project:projects!inner(id, name),
-          approver:users!timesheets_approved_by_fkey(id, username, full_name, role)
-        `)
-        .gte('submitted_at', monthStart.toISOString())
-        .lte('submitted_at', monthEnd.toISOString());
+          approver:users!timesheets_approved_by_fkey(
+            id, 
+            username, 
+            full_name, 
+            role,
+            designation
+          )
+        `);
 
       if (user.role === 'manager') {
         const { data: teamMembers } = await supabase
@@ -117,11 +124,18 @@ export const Approvals = () => {
         }
       }
 
-      const { data: timesheets } = await query;
+      const { data: timesheets, error } = await query;
+
+      if (error) throw error;
 
       if (timesheets) {
-        const pending = timesheets.filter(t => t.status === 'pending');
-        const approved = timesheets.filter(t => t.status === 'approved');
+        // Filter timesheets based on the week they belong to
+        const monthTimesheets = timesheets.filter(timesheet => 
+          isTimesheetInMonth(timesheet, selectedMonth)
+        );
+
+        const pending = monthTimesheets.filter(t => t.status === 'pending');
+        const approved = monthTimesheets.filter(t => t.status === 'approved');
         
         setManagerTimesheets(pending as TimesheetWithDetails[]);
         setApprovedTimesheets(approved as TimesheetWithDetails[]);
@@ -162,7 +176,7 @@ export const Approvals = () => {
       if (error) throw error;
 
       const approvedTimesheet = managerTimesheets.find(t => t.id === timesheetId);
-      if (approvedTimesheet) {
+      if (approvedTimesheet && isTimesheetInMonth(approvedTimesheet, selectedMonth)) {
         setManagerTimesheets(prev => prev.filter(t => t.id !== timesheetId));
         setApprovedTimesheets(prev => [{
           ...approvedTimesheet,
@@ -170,6 +184,10 @@ export const Approvals = () => {
           approver: user,
           approved_at: new Date().toISOString()
         } as TimesheetWithDetails, ...prev]);
+      } else {
+        // If the timesheet doesn't belong in the current month view,
+        // just remove it from pending
+        setManagerTimesheets(prev => prev.filter(t => t.id !== timesheetId));
       }
     } catch (error) {
       console.error('Error approving timesheet:', error);
@@ -226,19 +244,27 @@ export const Approvals = () => {
             .update({
               status: 'pending',
               approved_by: null,
-              approved_at: null
+              approved_at: null,
+              rejection_reason: null
             })
             .eq('id', timesheet.id);
 
           if (error) throw error;
 
-          setApprovedTimesheets(prev => prev.filter(t => t.id !== timesheet.id));
-          setManagerTimesheets(prev => [...prev, {
-            ...timesheet,
-            status: 'pending',
-            approver: null,
-            approved_at: null
-          }]);
+          if (isTimesheetInMonth(timesheet, selectedMonth)) {
+            setApprovedTimesheets(prev => prev.filter(t => t.id !== timesheet.id));
+            setManagerTimesheets(prev => [...prev, {
+              ...timesheet,
+              status: 'pending',
+              approver: null,
+              approved_at: null,
+              rejection_reason: null
+            }]);
+          } else {
+            // If the timesheet doesn't belong in the current month view,
+            // just remove it from approved
+            setApprovedTimesheets(prev => prev.filter(t => t.id !== timesheet.id));
+          }
         } catch (error) {
           console.error('Error reverting timesheet status:', error);
           setErrors(prev => [...prev, {

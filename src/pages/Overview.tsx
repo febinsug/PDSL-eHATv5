@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, subMonths, addMonths, startOfWeek, endOfWeek, addDays, getWeek, getYear, isSameMonth, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths, startOfWeek, endOfWeek, addDays, getWeek, getYear, isSameMonth, isWithinInterval } from 'date-fns';
 import { Clock, Briefcase, CheckCircle, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -13,29 +13,29 @@ import { UserHoursModal } from '../components/overview/UserHoursModal';
 import type { Project, UserHours, ProjectUtilizationDetails as ProjectUtilizationDetailsType } from '../types';
 
 const COLORS = {
-blue1: '#1732ca',  // Brand blue (unchanged)
-blue2: '#3a5be0',  // Slightly lighter royal blue
-blue3: '#7ab5ff',  // Sky blue (more distinct from blue2)
+  blue1: '#1732ca',  // Brand blue (unchanged)
+  blue2: '#3a5be0',  // Slightly lighter royal blue
+  blue3: '#7ab5ff',  // Sky blue (more distinct from blue2)
 
-// Teals and greens (adjusted for better distinction)
-teal1: '#00aece',  // Deeper cerulean 
-teal2: '#25d8b8',  // Brighter teal green
-teal3: '#59e6a3',  // Lighter mint
+  // Teals and greens (adjusted for better distinction)
+  teal1: '#00aece',  // Deeper cerulean 
+  teal2: '#25d8b8',  // Brighter teal green
+  teal3: '#59e6a3',  // Lighter mint
 
-// Warm colors (more distinction between terra1/terra3)
-terra1: '#ff5252',  // Brighter coral red
-terra2: '#ff9500',  // More saturated amber
-terra3: '#b92d2d',  // Deeper dark red
+  // Warm colors (more distinction between terra1/terra3)
+  terra1: '#ff5252',  // Brighter coral red
+  terra2: '#ff9500',  // More saturated amber
+  terra3: '#b92d2d',  // Deeper dark red
 
-// Cool colors (increased distinction)
-purple1: '#6200ea',  // More saturated royal purple
-purple2: '#d81b9c',  // Brighter magenta
-purple3: '#4a0696',  // Deeper violet
+  // Cool colors (increased distinction)
+  purple1: '#6200ea',  // More saturated royal purple
+  purple2: '#d81b9c',  // Brighter magenta
+  purple3: '#4a0696',  // Deeper violet
 
-// Neutral accents (slightly adjusted for better contrast)
-slate1: '#252838',  // Darker slate
-slate2: '#5d6b8a',  // Slightly bluer medium slate
-slate3: '#95a5c2'   // Slightly bluer light slate
+  // Neutral accents (slightly adjusted for better contrast)
+  slate1: '#252838',  // Darker slate
+  slate2: '#5d6b8a',  // Slightly bluer medium slate
+  slate3: '#95a5c2'   // Slightly bluer light slate
 };
 
 const PROJECT_COLORS = [
@@ -61,7 +61,14 @@ const fetchProjectDetails = async (project: Project) => {
     const [usersResponse, timesheetsResponse] = await Promise.all([
       supabase
         .from('project_users')
-        .select('user:users(*)')
+        .select(`
+          user:users(
+            id,
+            username,
+            full_name,
+            designation
+          )
+        `)
         .eq('project_id', project.id),
       supabase
         .from('timesheets')
@@ -142,8 +149,19 @@ export const Overview = () => {
           .from('timesheets')
           .select(`
             *,
-            user:users!timesheets_user_id_fkey(id, username, full_name, role),
-            project:projects!inner(id, name, allocated_hours, client:clients(name))
+            user:users!timesheets_user_id_fkey(
+              id, 
+              username, 
+              full_name, 
+              role,
+              designation
+            ),
+            project:projects!inner(
+              id, 
+              name, 
+              allocated_hours, 
+              client:clients(name)
+            )
           `)
           .eq('year', year)
           .eq(user.role === 'user' ? 'user_id' : 'year', user.role === 'user' ? user.id : year);

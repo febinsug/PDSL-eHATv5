@@ -1,4 +1,4 @@
-import type { User, Project, Timesheet, Client } from './models';
+import type { User, Project, Timesheet, Client, Department } from './models';
 
 export interface TimesheetWithDetails extends Timesheet {
   user: User;
@@ -34,4 +34,8 @@ export interface ProjectUtilizationDetails {
   }[];
 }
 
-export type { User, Project, Timesheet, Client };
+export interface DepartmentWithUsers extends Department {
+  users?: User[];
+}
+
+export type { User, Project, Timesheet, Client, Department };

@@ -142,7 +142,9 @@ export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
                     <div className="text-sm font-medium text-gray-900">
                       {timesheet.user.full_name || timesheet.user.username}
                     </div>
-                    <div className="text-sm text-gray-500">{timesheet.user.role}</div>
+                    <div className="text-sm text-gray-500">
+                      {timesheet.user.designation || '-'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{timesheet.project.name}</div>

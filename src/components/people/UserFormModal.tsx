@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
-import type { User } from '../../types';
+import type { User, Department } from '../../types';
 
 interface UserFormData {
   username: string;
@@ -9,6 +9,8 @@ interface UserFormData {
   email: string;
   role: 'user' | 'manager';
   manager_id: string;
+  department_id: string;
+  designation: string;
 }
 
 interface UserFormModalProps {
@@ -16,6 +18,7 @@ interface UserFormModalProps {
   onClose: () => void;
   onSubmit: (data: UserFormData) => Promise<void>;
   managers: User[];
+  departments: Department[];
   editingUser?: User | null;
 }
 
@@ -24,6 +27,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   onClose,
   onSubmit,
   managers,
+  departments,
   editingUser
 }) => {
   const [formData, setFormData] = useState<UserFormData>({
@@ -33,6 +37,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     email: '',
     role: 'user',
     manager_id: '',
+    department_id: '',
+    designation: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -46,6 +52,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
         email: editingUser.email || '',
         role: editingUser.role === 'manager' ? 'manager' : 'user',
         manager_id: editingUser.manager_id || '',
+        department_id: editingUser.department_id || '',
+        designation: editingUser.designation || '',
       });
     }
   }, [editingUser]);
@@ -154,6 +162,39 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               <option value="user">User</option>
               <option value="manager">Manager</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+              Department
+            </label>
+            <select
+              id="department"
+              value={formData.department_id}
+              onChange={e => setFormData(prev => ({ ...prev, department_id: e.target.value }))}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+            >
+              <option value="">No Department</option>
+              {departments.map(department => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
+              Designation
+            </label>
+            <input
+              type="text"
+              id="designation"
+              value={formData.designation}
+              onChange={e => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+              placeholder="e.g. Senior Developer"
+            />
           </div>
 
           <div>

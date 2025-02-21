@@ -25,7 +25,7 @@ export const UserHoursList: React.FC<UserHoursListProps> = ({ userHours, onUserC
                 </div>
                 <div>
                   <p className="font-medium">{userHour.user.full_name || userHour.user.username}</p>
-                  <p className="text-sm text-gray-500 capitalize">{userHour.user.role}</p>
+                  <p className="text-sm text-gray-500">{userHour.user.designation || '-'}</p>
                 </div>
               </div>
               <div className="text-right">

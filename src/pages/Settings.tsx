@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Settings as SettingsIcon, Lock, Bell, AlertCircle, Loader2 } from 'lucide-react';
+import { User, Settings as SettingsIcon, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 
@@ -10,13 +10,23 @@ interface ConfirmationDialog {
   action: () => Promise<void>;
 }
 
+interface SettingsFormData {
+  full_name: string;
+  email: string;
+  designation: string;
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export const Settings = () => {
   const { user, logout } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SettingsFormData>({
     full_name: user?.full_name || '',
     email: user?.email || '',
+    designation: user?.designation || '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -46,6 +56,7 @@ export const Settings = () => {
             .update({
               full_name: formData.full_name,
               email: formData.email,
+              designation: formData.designation,
             })
             .eq('id', user.id);
 
@@ -171,6 +182,20 @@ export const Settings = () => {
                 value={formData.email}
                 onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
+                Designation
+              </label>
+              <input
+                type="text"
+                id="designation"
+                value={formData.designation}
+                onChange={e => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+                placeholder="e.g. Senior Developer"
               />
             </div>
 
