@@ -121,7 +121,7 @@ export const HourSubmission = () => {
             .from('projects')
             .select('*')
             .in('id', projectIds)
-            .eq('is_active', true);
+            .eq('status', 'active');
 
           setProjects(projects || []);
         }

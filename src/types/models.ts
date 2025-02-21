@@ -18,13 +18,15 @@ export interface Client {
   created_by: string;
 }
 
+export type ProjectStatus = 'active' | 'on_hold' | 'completed';
+
 export interface Project {
   id: string;
   name: string;
   description: string | null;
   allocated_hours: number;
   created_by: string;
-  is_active: boolean;
+  status: ProjectStatus;
   client_id: string;
   client?: Client;
   completed_at?: string | null;

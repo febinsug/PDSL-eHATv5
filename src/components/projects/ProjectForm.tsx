@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import type { Project, User, Client } from '../../types';
+import type { Project, User, Client, ProjectStatus } from '../../types';
 
 interface ProjectFormData {
   name: string;
@@ -8,6 +8,7 @@ interface ProjectFormData {
   allocated_hours: number;
   assigned_users: string[];
   client_id: string;
+  status: ProjectStatus;
 }
 
 interface ProjectFormProps {
@@ -86,19 +87,38 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         />
       </div>
 
-      <div>
-        <label htmlFor="allocated_hours" className="block text-sm font-medium text-gray-700">
-          Allocated Hours
-        </label>
-        <input
-          type="number"
-          id="allocated_hours"
-          value={formData.allocated_hours}
-          onChange={e => setFormData(prev => ({ ...prev, allocated_hours: parseInt(e.target.value) }))}
-          min="0"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
-          required
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="allocated_hours" className="block text-sm font-medium text-gray-700">
+            Allocated Hours
+          </label>
+          <input
+            type="number"
+            id="allocated_hours"
+            value={formData.allocated_hours}
+            onChange={e => setFormData(prev => ({ ...prev, allocated_hours: parseInt(e.target.value) }))}
+            min="0"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+            Status
+          </label>
+          <select
+            id="status"
+            value={formData.status}
+            onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as ProjectStatus }))}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1732ca] focus:outline-none focus:ring-1 focus:ring-[#1732ca]"
+            required
+          >
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
       </div>
 
       <div>

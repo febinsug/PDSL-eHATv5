@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Users, Loader2, CheckCircle, XCircle, AlertCircle, Clock, X, Building2, Check, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Filter, Search, Loader2, AlertCircle, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { ProjectForm } from '../components/projects/ProjectForm';
-import { ClientForm } from '../components/projects/ClientForm';
 import { ProjectList } from '../components/projects/ProjectList';
+import { ClientForm } from '../components/projects/ClientForm';
 import { ClientList } from '../components/projects/ClientList';
+import { FilterDialog } from '../components/projects/FilterDialog';
 import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
-import type { Project, User, Timesheet, Client } from '../types';
+import type { Project, User, Client, ProjectStatus } from '../types';
 
 interface ProjectFormData {
   name: string;
@@ -15,101 +16,8 @@ interface ProjectFormData {
   allocated_hours: number;
   assigned_users: string[];
   client_id: string;
+  status: ProjectStatus;
 }
-
-interface ProjectDetails {
-  project: Project;
-  users: User[];
-  timesheets: Timesheet[];
-  totalHoursUsed: number;
-  hoursRemaining: number;
-}
-
-const ProjectDetailsModal = ({ details, onClose }: { details: ProjectDetails; onClose: () => void }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">{details.project.name}</h3>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        <div>
-          <h4 className="text-sm font-medium text-gray-500 mb-2">Project Details</h4>
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-            <p className="text-sm">
-              <span className="font-medium">Description:</span> {details.project.description || 'No description'}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Hours:</span> {details.totalHoursUsed} used of {details.project.allocated_hours} allocated
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Remaining:</span> {details.hoursRemaining} hours
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-medium text-gray-500 mb-2">Team Members</h4>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4">
-              {details.users.map(user => (
-                <div key={user.id} className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
-                    <span className="text-[#1732ca] font-medium">
-                      {(user.full_name || user.username)[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{user.full_name || user.username}</p>
-                    <p className="text-xs text-gray-500 capitalize">{user.role}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-medium text-gray-500 mb-2">Recent Timesheets</h4>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="space-y-4">
-              {details.timesheets.map(timesheet => (
-                <div key={timesheet.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">
-                      Week {timesheet.week_number}, {timesheet.year}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {timesheet.total_hours} hours
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    timesheet.status === 'approved'
-                      ? 'bg-green-100 text-green-800'
-                      : timesheet.status === 'rejected'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {timesheet.status === 'approved' && <CheckCircle className="w-3 h-3" />}
-                    {timesheet.status === 'rejected' && <XCircle className="w-3 h-3" />}
-                    {timesheet.status === 'pending' && <Clock className="w-3 h-3" />}
-                    {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
-                  </span>
-                </div>
-              ))}
-              {details.timesheets.length === 0 && (
-                <p className="text-sm text-gray-500 text-center">No timesheets found</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 export const Projects = () => {
   const { user } = useAuthStore();
@@ -122,13 +30,13 @@ export const Projects = () => {
   const [showClientForm, setShowClientForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [selectedProject, setSelectedProject] = useState<ProjectDetails | null>(null);
   const [formData, setFormData] = useState<ProjectFormData>({
     name: '',
     description: '',
     allocated_hours: 0,
     assigned_users: [],
     client_id: '',
+    status: 'active',
   });
   const [clientFormData, setClientFormData] = useState({
     name: '',
@@ -136,7 +44,17 @@ export const Projects = () => {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [showClients, setShowClients] = useState(false);
+  const [filterOptions, setFilterOptions] = useState({
+    clients: [] as string[],
+    status: [] as string[],
+  });
+  const [sortConfig, setSortConfig] = useState({
+    field: 'name',
+    direction: 'asc' as 'asc' | 'desc'
+  });
   const [confirmation, setConfirmation] = useState({
     show: false,
     title: '',
@@ -168,8 +86,8 @@ export const Projects = () => {
         ]);
 
         if (projectsResponse.data) {
-          const activeProjects = projectsResponse.data.filter(p => p.is_active && !p.completed_at);
-          const completed = projectsResponse.data.filter(p => p.completed_at);
+          const activeProjects = projectsResponse.data.filter(p => p.status !== 'completed');
+          const completed = projectsResponse.data.filter(p => p.status === 'completed');
           setProjects(activeProjects);
           setCompletedProjects(completed);
         }
@@ -185,6 +103,57 @@ export const Projects = () => {
 
     fetchData();
   }, [user]);
+
+  const filterProjects = (projects: Project[]) => {
+    return projects.filter(project => {
+      // Search filter
+      const searchMatch = !searchQuery || 
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.client?.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Client filter
+      const clientMatch = filterOptions.clients.length === 0 || 
+        filterOptions.clients.includes(project.client_id);
+
+      // Status filter
+      const statusMatch = filterOptions.status.length === 0 || 
+        filterOptions.status.includes(project.status);
+
+      return searchMatch && clientMatch && statusMatch;
+    });
+  };
+
+  const sortProjects = (projects: Project[]) => {
+    return [...projects].sort((a, b) => {
+      let valueA, valueB;
+
+      switch (sortConfig.field) {
+        case 'name':
+          valueA = a.name.toLowerCase();
+          valueB = b.name.toLowerCase();
+          break;
+        case 'client.name':
+          valueA = (a.client?.name || '').toLowerCase();
+          valueB = (b.client?.name || '').toLowerCase();
+          break;
+        default:
+          valueA = a[sortConfig.field as keyof Project];
+          valueB = b[sortConfig.field as keyof Project];
+      }
+
+      if (valueA < valueB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valueA > valueB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleSort = (field: string) => {
+    setSortConfig(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const handleCreateOrEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +171,13 @@ export const Projects = () => {
 
         try {
           if (editingProject) {
+            // Set completed_at when status changes to completed
+            const completed_at = formData.status === 'completed' 
+              ? new Date().toISOString() 
+              : formData.status === 'active' || formData.status === 'on_hold' 
+                ? null 
+                : editingProject.completed_at;
+
             const { error: updateError } = await supabase
               .from('projects')
               .update({
@@ -209,6 +185,8 @@ export const Projects = () => {
                 description: formData.description,
                 allocated_hours: formData.allocated_hours,
                 client_id: formData.client_id,
+                status: formData.status,
+                completed_at,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', editingProject.id);
@@ -239,7 +217,8 @@ export const Projects = () => {
                 allocated_hours: formData.allocated_hours,
                 client_id: formData.client_id,
                 created_by: user.id,
-                is_active: true,
+                status: formData.status,
+                completed_at: formData.status === 'completed' ? new Date().toISOString() : null,
               })
               .select()
               .single();
@@ -267,8 +246,8 @@ export const Projects = () => {
             .order('created_at', { ascending: false });
 
           if (updatedProjects) {
-            const activeProjects = updatedProjects.filter(p => p.is_active && !p.completed_at);
-            const completed = updatedProjects.filter(p => p.completed_at);
+            const activeProjects = updatedProjects.filter(p => p.status !== 'completed');
+            const completed = updatedProjects.filter(p => p.status === 'completed');
             setProjects(activeProjects);
             setCompletedProjects(completed);
           }
@@ -298,24 +277,13 @@ export const Projects = () => {
         allocated_hours: project.allocated_hours,
         assigned_users: assignments?.map(a => a.user_id) || [],
         client_id: project.client_id || '',
+        status: project.status,
       });
       setShowForm(true);
     } catch (error) {
       console.error('Error in handleEdit:', error);
       setError(error instanceof Error ? error.message : 'Failed to load project details');
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      allocated_hours: 0,
-      assigned_users: [],
-      client_id: '',
-    });
-    setEditingProject(null);
-    setError('');
   };
 
   const handleEditClient = (client: Client) => {
@@ -334,7 +302,7 @@ export const Projects = () => {
     setConfirmation({
       show: true,
       title: editingClient ? 'Update Client' : 'Create Client',
-      message: editingClient 
+      message: editingClient
         ? `Are you sure you want to update "${clientFormData.name}"?`
         : `Are you sure you want to create client "${clientFormData.name}"?`,
       action: async () => {
@@ -384,66 +352,17 @@ export const Projects = () => {
     });
   };
 
-  const fetchProjectDetails = async (project: Project) => {
-    try {
-      const [usersResponse, timesheetsResponse] = await Promise.all([
-        supabase
-          .from('project_users')
-          .select('user:users(*)')
-          .eq('project_id', project.id),
-        supabase
-          .from('timesheets')
-          .select('*')
-          .eq('project_id', project.id)
-          .order('submitted_at', { ascending: false })
-          .limit(10)
-      ]);
-
-      const users = usersResponse.data?.map(pu => pu.user) || [];
-      const timesheets = timesheetsResponse.data || [];
-
-      const totalHoursUsed = timesheets.reduce((sum, ts) => 
-        sum + (ts.monday_hours + ts.tuesday_hours + ts.wednesday_hours + ts.thursday_hours + ts.friday_hours), 0
-      );
-
-      setSelectedProject({
-        project,
-        users,
-        timesheets,
-        totalHoursUsed,
-        hoursRemaining: project.allocated_hours - totalHoursUsed
-      });
-    } catch (error) {
-      console.error('Error fetching project details:', error);
-      setError('Failed to load project details');
-    }
-  };
-
-  const handleCompleteProject = (project: Project) => {
-    setConfirmation({
-      show: true,
-      title: 'Complete Project',
-      message: `Are you sure you want to mark "${project.name}" as complete? This will archive the project and move it to the completed projects section.`,
-      action: async () => {
-        try {
-          const { error } = await supabase
-            .from('projects')
-            .update({ 
-              is_active: false,
-              completed_at: new Date().toISOString()
-            })
-            .eq('id', project.id);
-
-          if (error) throw error;
-
-          setProjects(prev => prev.filter(p => p.id !== project.id));
-          setCompletedProjects(prev => [{ ...project, completed_at: new Date().toISOString() }, ...prev]);
-        } catch (error) {
-          console.error('Error completing project:', error);
-          setError('Failed to complete project');
-        }
-      },
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      allocated_hours: 0,
+      assigned_users: [],
+      client_id: '',
+      status: 'active',
     });
+    setEditingProject(null);
+    setError('');
   };
 
   const handleDeleteProject = (project: Project) => {
@@ -469,17 +388,44 @@ export const Projects = () => {
     });
   };
 
-  const handleReactivateProject = (project: Project) => {
+  const handleCompleteProject = (project: Project) => {
     setConfirmation({
       show: true,
-      title: 'Reactivate Project',
-      message: `Are you sure you want to reactivate "${project.name}"? This will make the project active again.`,
+      title: 'Complete Project',
+      message: `Are you sure you want to mark "${project.name}" as complete? This will move it to the completed projects section.`,
       action: async () => {
         try {
           const { error } = await supabase
             .from('projects')
             .update({ 
-              is_active: true,
+              status: 'completed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', project.id);
+
+          if (error) throw error;
+
+          setProjects(prev => prev.filter(p => p.id !== project.id));
+          setCompletedProjects(prev => [{ ...project, status: 'completed', completed_at: new Date().toISOString() }, ...prev]);
+        } catch (error) {
+          console.error('Error completing project:', error);
+          setError('Failed to complete project');
+        }
+      },
+    });
+  };
+
+  const handleReactivateProject = (project: Project) => {
+    setConfirmation({
+      show: true,
+      title: 'Reactivate Project',
+      message: `Are you sure you want to reactivate "${project.name}"? This will move it back to active projects.`,
+      action: async () => {
+        try {
+          const { error } = await supabase
+            .from('projects')
+            .update({ 
+              status: 'active',
               completed_at: null
             })
             .eq('id', project.id);
@@ -487,7 +433,7 @@ export const Projects = () => {
           if (error) throw error;
 
           setCompletedProjects(prev => prev.filter(p => p.id !== project.id));
-          setProjects(prev => [...prev, { ...project, is_active: true, completed_at: null }]);
+          setProjects(prev => [{ ...project, status: 'active', completed_at: null }, ...prev]);
         } catch (error) {
           console.error('Error reactivating project:', error);
           setError('Failed to reactivate project');
@@ -513,6 +459,9 @@ export const Projects = () => {
       </div>
     );
   }
+
+  const filteredProjects = filterProjects(projects);
+  const sortedProjects = sortProjects(filteredProjects);
 
   return (
     <div className="space-y-6">
@@ -557,7 +506,7 @@ export const Projects = () => {
         </div>
       )}
 
-      {showClientForm && (
+      {showClientForm ? (
         <ClientForm
           formData={clientFormData}
           setFormData={setClientFormData}
@@ -570,9 +519,7 @@ export const Projects = () => {
           saving={saving}
           editingClient={editingClient}
         />
-      )}
-
-      {showForm && (
+      ) : showForm ? (
         <ProjectForm
           formData={formData}
           setFormData={setFormData}
@@ -586,103 +533,73 @@ export const Projects = () => {
           clients={clients}
           editingProject={editingProject}
         />
-      )}
-
-      {showClients ? (
+      ) : showClients ? (
         <ClientList
           clients={clients}
           projects={projects}
           onEdit={handleEditClient}
         />
       ) : (
-        <div className="space-y-8">
-          <ProjectList
-            title="Active Projects"
-            projects={projects}
-            onEdit={handleEdit}
-            onArchive={handleDeleteProject}
-            onComplete={handleCompleteProject}
-            onSelect={fetchProjectDetails}
-          />
-
-          {completedProjects.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Completed Projects</h2>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
               </div>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Project Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Client
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Completed Date
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {completedProjects.map(project => (
-                    <tr key={project.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{project.client?.name || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-500">{project.description || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {project.completed_at && new Date(project.completed_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleReactivateProject(project)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
-                            title="Reactivate project"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProject(project)}
-                            className="text-red-600 hover:text-red-700"
-                            title="Delete project"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-[#1732ca] focus:border-[#1732ca] text-sm"
+              />
             </div>
-          )}
+            <button
+              onClick={() => setShowFilterDialog(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              <Filter className="w-5 h-5" />
+              Filter
+            </button>
+          </div>
+
+          <div className="space-y-8">
+            <ProjectList
+              title="Active Projects"
+              projects={sortedProjects}
+              onEdit={handleEdit}
+              onArchive={handleDeleteProject}
+              onComplete={handleCompleteProject}
+              onSelect={() => {}}
+              onSort={handleSort}
+              sortConfig={sortConfig}
+            />
+
+            {completedProjects.length > 0 && (
+              <ProjectList
+                title="Completed Projects"
+                projects={completedProjects}
+                onEdit={handleEdit}
+                onArchive={handleDeleteProject}
+                onComplete={handleCompleteProject}
+                onSelect={() => {}}
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                showReactivate={true}
+                onReactivate={handleReactivateProject}
+              />
+            )}
+          </div>
         </div>
       )}
 
-      {selectedProject && (
-        <ProjectDetailsModal
-          details={selectedProject}
-          onClose={() => setSelectedProject(null)}
-        />
-      )}
+      <FilterDialog
+        show={showFilterDialog}
+        onClose={() => setShowFilterDialog(false)}
+        filterOptions={filterOptions}
+        setFilterOptions={setFilterOptions}
+        clients={clients}
+      />
 
       <ConfirmationDialog
         show={confirmation.show}
