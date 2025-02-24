@@ -2,13 +2,16 @@ import { startOfWeek, addDays } from 'date-fns';
 import type { Timesheet } from '../types';
 
 export const calculateTotalHours = (timesheet: Timesheet) => {
-  return (
-    timesheet.monday_hours +
-    timesheet.tuesday_hours +
-    timesheet.wednesday_hours +
-    timesheet.thursday_hours +
-    timesheet.friday_hours
+  const total = (
+    (timesheet.monday_hours || 0) +
+    (timesheet.tuesday_hours || 0) +
+    (timesheet.wednesday_hours || 0) +
+    (timesheet.thursday_hours || 0) +
+    (timesheet.friday_hours || 0)
   );
+  
+  // Return with 2 decimal places
+  return Number(total.toFixed(2));
 };
 
 export const sortTimesheets = (timesheets: any[], sortOption: { field: string; direction: 'asc' | 'desc' }) => {

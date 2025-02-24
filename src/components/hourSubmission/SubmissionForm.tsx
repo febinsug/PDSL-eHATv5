@@ -64,6 +64,12 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                           step="0.5"
                           value={projectHours[`${day}_hours`] || ''}
                           onChange={e => handleHourChange(project.id, day, e.target.value)}
+                          onBlur={e => {
+                            // Convert empty or invalid values to 0
+                            if (!e.target.value || isNaN(parseFloat(e.target.value))) {
+                              handleHourChange(project.id, day, '0');
+                            }
+                          }}
                           className="w-20 text-center rounded-lg border-gray-300 shadow-sm
                             focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
                             hover:border-gray-400 transition-colors

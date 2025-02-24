@@ -183,7 +183,7 @@ export const HourSubmission = () => {
       ...prev,
       [projectId]: {
         ...prev[projectId],
-        [`${day}_hours`]: numValue,
+        [`${day}_hours`]: numValue, // Always store as number, never null
       },
     }));
   };
