@@ -40,8 +40,9 @@ export const ProjectUtilization: React.FC<ProjectUtilizationProps> = ({ projects
                 className="h-2 rounded-full transition-all duration-500"
                 style={{ 
                   width: `${Math.min(project.utilization || 0, 100)}%`,
-                  backgroundColor: project.utilization > 90 ? '#22c55e' : 
-                                 project.utilization > 70 ? '#4ade80' : '#86efac'
+                  backgroundColor: project.utilization > 100 ? '#ef4444' : 
+                                 project.utilization > 90 ? '#f97316' : 
+                                 project.utilization > 70 ? '#22c55e' : '#86efac'
                 }}
               />
             </div>

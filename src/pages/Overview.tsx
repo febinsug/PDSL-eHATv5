@@ -62,7 +62,7 @@ const fetchProjectDetails = async (project: Project) => {
       supabase
         .from('project_users')
         .select(`
-          user:users(
+          user:users!project_users_user_id_fkey(
             id,
             username,
             full_name,
@@ -72,30 +72,55 @@ const fetchProjectDetails = async (project: Project) => {
         .eq('project_id', project.id),
       supabase
         .from('timesheets')
-        .select('*')
+        .select(`
+          *,
+          user:users!timesheets_user_id_fkey(
+            id, 
+            full_name, 
+            username, 
+            designation
+          )
+        `)
         .eq('project_id', project.id)
         .order('submitted_at', { ascending: false })
-        .limit(10)
     ]);
 
-    const users = usersResponse.data?.map(pu => ({
-      id: pu.user.id,
-      name: pu.user.full_name || pu.user.username,
-      hours: 0
-    })) || [];
+    // Create a map to track hours per user
+    const userHoursMap = new Map();
+    
+    // Process timesheets to calculate hours per user
+    if (timesheetsResponse.data) {
+      timesheetsResponse.data.forEach(timesheet => {
+        const userId = timesheet.user_id;
+        const userName = timesheet.user.full_name || timesheet.user.username;
+        const designation = timesheet.user.designation || '';
+        const hours = timesheet.total_hours || 0;
+        
+        if (!userHoursMap.has(userId)) {
+          userHoursMap.set(userId, { 
+            id: userId, 
+            name: userName,
+            designation: designation,
+            hours: 0 
+          });
+        }
+        
+        const userRecord = userHoursMap.get(userId);
+        userRecord.hours += hours;
+        userHoursMap.set(userId, userRecord);
+      });
+    }
+    
+    // Convert map to array
+    const userHours = Array.from(userHoursMap.values());
+    
+    // Sort by hours (highest first)
+    userHours.sort((a, b) => b.hours - a.hours);
 
-    const timesheets = timesheetsResponse.data || [];
-
-    timesheets.forEach(timesheet => {
-      const user = users.find(u => u.id === timesheet.user_id);
-      if (user) {
-        user.hours += timesheet.total_hours || 0;
-      }
-    });
-
-    const totalHoursUsed = timesheets.reduce((sum, ts) => 
+    // Calculate total hours used across all timesheets
+    const totalHoursUsed = timesheetsResponse.data?.reduce((sum, ts) => 
       sum + (ts.total_hours || 0), 0
-    );
+    ) || 0;
 
     return {
       project: {
@@ -103,8 +128,8 @@ const fetchProjectDetails = async (project: Project) => {
         totalHours: totalHoursUsed,
         utilization: (totalHoursUsed / project.allocated_hours) * 100
       },
-      users,
-      timesheets,
+      users: userHours,
+      timesheets: timesheetsResponse.data || [],
       totalHoursUsed,
       hoursRemaining: project.allocated_hours - totalHoursUsed
     };
@@ -144,8 +169,8 @@ export const Overview = () => {
         const monthEnd = endOfMonth(selectedMonth);
         const year = getYear(selectedMonth);
 
-        // Fetch timesheets with project details
-        const { data: timesheetsData, error: timesheetsError } = await supabase
+        // Fetch all timesheets for all time (not just the selected month)
+        const { data: allTimesheetsData, error: allTimesheetsError } = await supabase
           .from('timesheets')
           .select(`
             *,
@@ -156,20 +181,18 @@ export const Overview = () => {
               role,
               designation
             ),
-            project:projects!inner(
+            project:projects!timesheets_project_id_fkey(
               id, 
               name, 
               allocated_hours, 
               client:clients(name)
             )
-          `)
-          .eq('year', year)
-          .eq(user.role === 'user' ? 'user_id' : 'year', user.role === 'user' ? user.id : year);
+          `);
 
-        if (timesheetsError) throw timesheetsError;
+        if (allTimesheetsError) throw allTimesheetsError;
 
-        // Filter timesheets for the selected month
-        const monthTimesheets = (timesheetsData || []).filter(timesheet => {
+        // Filter timesheets for the selected month (for monthly stats and charts)
+        const monthTimesheets = (allTimesheetsData || []).filter(timesheet => {
           const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
           let daysInSelectedMonth = 0;
           for (let i = 0; i < 7; i++) {
@@ -181,31 +204,37 @@ export const Overview = () => {
           return daysInSelectedMonth >= 4;
         });
 
-        if (monthTimesheets.length === 0) {
-          setStats({
-            totalHours: 0,
-            activeProjects: 0,
-            pendingSubmissions: 0,
-            approvedSubmissions: 0,
-          });
-          setProjects([]);
-          setProjectHours([]);
-          setWeeklyData([]);
-          setLoading(false);
-          return;
-        }
-
-        // Calculate project statistics
+        // Calculate project statistics for all time
         const projectMap = new Map<string, Project & { totalHours: number; color: string }>();
-        monthTimesheets.forEach(timesheet => {
-          if (!projectMap.has(timesheet.project.id)) {
-            projectMap.set(timesheet.project.id, {
+        
+        // First, initialize projects with zero hours
+        const { data: projectsData } = await supabase
+          .from('projects')
+          .select(`
+            *,
+            client:clients(*)
+          `)
+          .eq('status', 'active');
+          
+        (projectsData || []).forEach((project, index) => {
+          projectMap.set(project.id, {
+            ...project,
+            totalHours: 0,
+            color: PROJECT_COLORS[index % PROJECT_COLORS.length],
+          });
+        });
+        
+        // Then add hours from all timesheets
+        allTimesheetsData?.forEach(timesheet => {
+          if (!projectMap.has(timesheet.project_id)) {
+            const projectIndex = projectMap.size;
+            projectMap.set(timesheet.project_id, {
               ...timesheet.project,
               totalHours: 0,
-              color: PROJECT_COLORS[projectMap.size % PROJECT_COLORS.length],
+              color: PROJECT_COLORS[projectIndex % PROJECT_COLORS.length],
             });
           }
-          const project = projectMap.get(timesheet.project.id)!;
+          const project = projectMap.get(timesheet.project_id)!;
           project.totalHours += timesheet.total_hours || 0;
         });
 
@@ -214,19 +243,35 @@ export const Overview = () => {
             ...project,
             utilization: (project.totalHours / project.allocated_hours) * 100,
           }))
-          .filter(p => p.totalHours > 0);
+          .filter(p => p.status === 'active');
 
         setProjects(activeProjects);
 
-        // Calculate project hours for charts
-        const projectHoursData = activeProjects.map(project => ({
-          name: project.name,
-          hours: project.totalHours,
-          color: project.color,
-        }));
+        // Calculate project hours for charts (using month data)
+        const monthProjectMap = new Map<string, { name: string; hours: number; color: string }>();
+        monthTimesheets.forEach(timesheet => {
+          const projectId = timesheet.project_id;
+          if (!monthProjectMap.has(projectId)) {
+            const project = projectMap.get(projectId);
+            if (project) {
+              monthProjectMap.set(projectId, {
+                name: project.name,
+                hours: 0,
+                color: project.color,
+              });
+            }
+          }
+          const projectData = monthProjectMap.get(projectId);
+          if (projectData) {
+            projectData.hours += timesheet.total_hours || 0;
+            monthProjectMap.set(projectId, projectData);
+          }
+        });
+        
+        const projectHoursData = Array.from(monthProjectMap.values());
         setProjectHours(projectHoursData);
 
-        // Calculate statistics
+        // Calculate statistics for the selected month
         const totalHours = monthTimesheets.reduce((sum, t) => sum + (t.total_hours || 0), 0);
         const pendingCount = monthTimesheets.filter(t => t.status === 'pending').length;
         const approvedCount = monthTimesheets.filter(t => t.status === 'approved').length;
@@ -238,7 +283,7 @@ export const Overview = () => {
           approvedSubmissions: approvedCount,
         });
 
-        // Calculate weekly data
+        // Calculate weekly data for the selected month
         const weeklyChartData = user.role === 'user'
           ? monthTimesheets
               .reduce((acc: any[], timesheet) => {

@@ -139,11 +139,11 @@ export const HourSubmission = () => {
         timesheets?.forEach(timesheet => {
           if (timesheet.status !== 'approved') {
             hoursMap[timesheet.project_id] = {
-              monday_hours: timesheet.monday_hours,
-              tuesday_hours: timesheet.tuesday_hours,
-              wednesday_hours: timesheet.wednesday_hours,
-              thursday_hours: timesheet.thursday_hours,
-              friday_hours: timesheet.friday_hours,
+              monday_hours: timesheet.monday_hours || 0,
+              tuesday_hours: timesheet.tuesday_hours || 0,
+              wednesday_hours: timesheet.wednesday_hours || 0,
+              thursday_hours: timesheet.thursday_hours || 0,
+              friday_hours: timesheet.friday_hours || 0,
             };
           }
         });
@@ -260,7 +260,11 @@ export const HourSubmission = () => {
           project_id: projectId,
           week_number: weekNumber,
           year: year,
-          ...projectHours,
+          monday_hours: projectHours.monday_hours || 0,
+          tuesday_hours: projectHours.tuesday_hours || 0,
+          wednesday_hours: projectHours.wednesday_hours || 0,
+          thursday_hours: projectHours.thursday_hours || 0,
+          friday_hours: projectHours.friday_hours || 0,
           status: 'pending',
           submitted_at: new Date().toISOString(),
           rejection_reason: null,
@@ -345,11 +349,11 @@ export const HourSubmission = () => {
     // Load the timesheet data into the form
     setHours({
       [timesheet.project_id]: {
-        monday_hours: timesheet.monday_hours,
-        tuesday_hours: timesheet.tuesday_hours,
-        wednesday_hours: timesheet.wednesday_hours,
-        thursday_hours: timesheet.thursday_hours,
-        friday_hours: timesheet.friday_hours,
+        monday_hours: timesheet.monday_hours || 0,
+        tuesday_hours: timesheet.tuesday_hours || 0,
+        wednesday_hours: timesheet.wednesday_hours || 0,
+        thursday_hours: timesheet.thursday_hours || 0,
+        friday_hours: timesheet.friday_hours || 0,
       },
     });
     setEditingTimesheet(timesheet);

@@ -32,7 +32,9 @@ export const ProjectUtilizationDetails: React.FC<ProjectUtilizationModalProps> =
             </div>
             <div>
               <p className="text-sm text-gray-500">Utilization</p>
-              <p className="text-2xl font-semibold">{details.project.utilization.toFixed(1)}%</p>
+              <p className={`text-2xl font-semibold ${details.project.utilization > 100 ? 'text-red-500' : ''}`}>
+                {details.project.utilization.toFixed(1)}%
+              </p>
             </div>
           </div>
 
@@ -47,7 +49,12 @@ export const ProjectUtilizationDetails: React.FC<ProjectUtilizationModalProps> =
                         {user.name[0].toUpperCase()}
                       </div>
                     </div>
-                    <span className="font-medium">{user.name}</span>
+                    <div>
+                      <span className="font-medium">{user.name}</span>
+                      {user.designation && (
+                        <p className="text-xs text-gray-500">{user.designation}</p>
+                      )}
+                    </div>
                   </div>
                   <span>{user.hours} hours</span>
                 </div>
