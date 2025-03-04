@@ -223,19 +223,23 @@ export const Overview = () => {
             color: PROJECT_COLORS[index % PROJECT_COLORS.length],
           });
         });
-        
-        // Then add hours from all timesheets
+
+        // Calculate cumulative hours up to the selected month
         allTimesheetsData?.forEach(timesheet => {
-          if (!projectMap.has(timesheet.project_id)) {
-            const projectIndex = projectMap.size;
-            projectMap.set(timesheet.project_id, {
-              ...timesheet.project,
-              totalHours: 0,
-              color: PROJECT_COLORS[projectIndex % PROJECT_COLORS.length],
-            });
+          // Check if timesheet date is before or equal to the end of selected month
+          const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+          if (weekStart <= endOfMonth(selectedMonth)) {
+            if (!projectMap.has(timesheet.project_id)) {
+              const projectIndex = projectMap.size;
+              projectMap.set(timesheet.project_id, {
+                ...timesheet.project,
+                totalHours: 0,
+                color: PROJECT_COLORS[projectIndex % PROJECT_COLORS.length],
+              });
+            }
+            const project = projectMap.get(timesheet.project_id)!;
+            project.totalHours += timesheet.total_hours || 0;
           }
-          const project = projectMap.get(timesheet.project_id)!;
-          project.totalHours += timesheet.total_hours || 0;
         });
 
         const activeProjects = Array.from(projectMap.values())
