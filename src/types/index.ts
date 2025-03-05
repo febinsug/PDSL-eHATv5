@@ -35,8 +35,12 @@ export interface ProjectUtilizationDetails {
     id: string;
     name: string;
     hours: number;
+    monthlyHours: number;
     designation?: string;
   }[];
+  timesheets: Timesheet[];
+  totalHoursUsed: number;
+  hoursRemaining: number;
 }
 
 export interface DepartmentWithUsers extends Department {

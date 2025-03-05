@@ -7,47 +7,50 @@ import type { TimesheetWithProject } from '../../types';
 
 interface SubmissionHistoryProps {
   timesheets: TimesheetWithProject[];
-  selectedMonth: Date;
   expandedTimesheets: string[];
-  onToggleTimesheet: (id: string) => void;
-  onEditTimesheet: (timesheet: TimesheetWithProject) => void;
-  onMonthChange: (date: Date) => void;
+  toggleTimesheet: (id: string) => void;
+  onEdit: (timesheet: TimesheetWithProject) => void;
+  selectedMonth: Date;
+  showHeader?: boolean;
 }
 
 export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
   timesheets,
-  selectedMonth,
   expandedTimesheets,
-  onToggleTimesheet,
-  onEditTimesheet,
-  onMonthChange,
+  toggleTimesheet,
+  onEdit,
+  selectedMonth,
+  showHeader = true
 }) => {
-  // Filter timesheets to only show those that belong to the selected month
-  const filteredTimesheets = timesheets.filter(timesheet => isTimesheetInMonth(timesheet, selectedMonth));
+  const filteredTimesheets = timesheets.filter(timesheet => 
+    selectedMonth ? isTimesheetInMonth(timesheet, selectedMonth) : false
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-      <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Your Submissions</h2>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => onMonthChange(subMonths(selectedMonth, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="text-sm font-medium">
-            {format(selectedMonth, 'MMMM yyyy')}
-          </span>
-          <button
-            onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={selectedMonth >= new Date()}
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+      {showHeader && (
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Your Submissions</h2>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => onMonthChange(subMonths(selectedMonth, 1))}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-medium">
+              {format(selectedMonth, 'MMMM yyyy')}
+            </span>
+            <button
+              onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={selectedMonth >= new Date()}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -111,7 +114,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => onToggleTimesheet(timesheet.id)}
+                        onClick={() => toggleTimesheet(timesheet.id)}
                         className="text-gray-500 hover:text-gray-700"
                       >
                         {expandedTimesheets.includes(timesheet.id) ? (
@@ -122,7 +125,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                       </button>
                       {timesheet.status !== 'approved' && (
                         <button
-                          onClick={() => onEditTimesheet(timesheet)}
+                          onClick={() => onEdit(timesheet)}
                           className="text-[#1732ca] hover:text-[#1732ca]/80 text-sm font-medium"
                         >
                           Edit

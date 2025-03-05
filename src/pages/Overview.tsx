@@ -56,7 +56,7 @@ const PROJECT_COLORS = [
   COLORS.slate3     // Light slate
 ];
 
-const fetchProjectDetails = async (project: Project) => {
+const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date) => {
   try {
     const [usersResponse, timesheetsResponse] = await Promise.all([
       supabase
@@ -74,28 +74,46 @@ const fetchProjectDetails = async (project: Project) => {
         .from('timesheets')
         .select('*')
         .eq('project_id', project.id)
-        .order('submitted_at', { ascending: false })
-        .limit(10)
+        .lte('year', getYear(currentSelectedMonth))
     ]);
 
     const users = usersResponse.data?.map(pu => ({
       id: pu.user.id,
       name: pu.user.full_name || pu.user.username,
-      hours: 0
+      designation: pu.user.designation,
+      hours: 0,
+      monthlyHours: 0
     })) || [];
 
     const timesheets = timesheetsResponse.data || [];
 
+    // Calculate both cumulative and monthly hours for each user
     timesheets.forEach(timesheet => {
       const user = users.find(u => u.id === timesheet.user_id);
-      if (user) {
+      if (!user) return;
+
+      const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+      
+      // Calculate cumulative hours
+      if (timesheet.year < getYear(currentSelectedMonth) || 
+          (timesheet.year === getYear(currentSelectedMonth) && weekStart <= endOfMonth(currentSelectedMonth))) {
         user.hours += timesheet.total_hours || 0;
+      }
+
+      // Calculate current month hours
+      if (timesheet.year === getYear(currentSelectedMonth) && 
+          isSameMonth(weekStart, currentSelectedMonth)) {
+        user.monthlyHours += timesheet.total_hours || 0;
       }
     });
 
-    const totalHoursUsed = timesheets.reduce((sum, ts) => 
-      sum + (ts.total_hours || 0), 0
-    );
+    // Calculate total hours used cumulatively
+    const totalHoursUsed = timesheets
+      .filter(timesheet => {
+        const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+        return weekStart <= endOfMonth(currentSelectedMonth);
+      })
+      .reduce((sum, ts) => sum + (ts.total_hours || 0), 0);
 
     return {
       project: {
@@ -103,7 +121,13 @@ const fetchProjectDetails = async (project: Project) => {
         totalHours: totalHoursUsed,
         utilization: (totalHoursUsed / project.allocated_hours) * 100
       },
-      users,
+      users: users.map(user => ({
+        id: user.id,
+        name: user.name,
+        hours: user.hours,
+        monthlyHours: user.monthlyHours,
+        designation: user.designation
+      })),
       timesheets,
       totalHoursUsed,
       hoursRemaining: project.allocated_hours - totalHoursUsed
@@ -201,6 +225,22 @@ export const Overview = () => {
 
         // Calculate project statistics
         const projectMap = new Map<string, Project & { totalHours: number; color: string }>();
+
+        // First get all timesheets for active projects (not filtered by month)
+        const { data: allTimesheets } = await supabase
+          .from('timesheets')
+          .select(`
+            *,
+            project:projects!inner(
+              id, 
+              name, 
+              allocated_hours, 
+              client:clients(name)
+            )
+          `)
+          .lte('year', getYear(selectedMonth));
+
+        // Initialize projects with zero hours
         monthTimesheets.forEach(timesheet => {
           if (!projectMap.has(timesheet.project.id)) {
             projectMap.set(timesheet.project.id, {
@@ -209,8 +249,17 @@ export const Overview = () => {
               color: PROJECT_COLORS[projectMap.size % PROJECT_COLORS.length],
             });
           }
-          const project = projectMap.get(timesheet.project.id)!;
-          project.totalHours += timesheet.total_hours || 0;
+        });
+
+        // Calculate cumulative hours for each project
+        allTimesheets?.forEach(timesheet => {
+          if (projectMap.has(timesheet.project.id)) {
+            const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+            if (weekStart <= endOfMonth(selectedMonth)) {
+              const project = projectMap.get(timesheet.project.id)!;
+              project.totalHours += timesheet.total_hours || 0;
+            }
+          }
         });
 
         const activeProjects = Array.from(projectMap.values())
@@ -345,7 +394,7 @@ export const Overview = () => {
 
   const handleProjectClick = async (project: Project) => {
     try {
-      const details = await fetchProjectDetails(project);
+      const details = await fetchProjectDetails(project, selectedMonth);
       setSelectedProject(details);
     } catch (error) {
       setError('Failed to load project details');

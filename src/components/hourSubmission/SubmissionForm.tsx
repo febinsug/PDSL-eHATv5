@@ -8,6 +8,7 @@ interface SubmissionFormProps {
   hours: Record<string, Record<string, number>>;
   weekDays: Date[];
   handleHourChange: (projectId: string, day: string, value: string) => void;
+  isReadOnly?: boolean;
 }
 
 export const SubmissionForm: React.FC<SubmissionFormProps> = ({
@@ -15,9 +16,15 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   hours,
   weekDays,
   handleHourChange,
+  isReadOnly = false,
 }) => {
   const calculateWeeklyTotal = (projectHours: Record<string, number>) => {
     return Object.values(projectHours).reduce((sum, hours) => sum + (hours || 0), 0);
+  };
+
+  const getDayKey = (date: Date) => {
+    const dayName = format(date, 'EEEE').toLowerCase();
+    return `${dayName}_hours`;
   };
 
   return (
@@ -42,7 +49,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               const total = calculateWeeklyTotal(projectHours);
 
               return (
-                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={project.id} className={`${isReadOnly ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-[#1732ca]/10 rounded-lg">
@@ -54,31 +61,35 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                       </div>
                     </div>
                   </td>
-                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map(day => (
-                    <td key={day} className="py-4 px-6">
-                      <div className="flex justify-center">
-                        <input
-                          type="number"
-                          min="0"
-                          max="24"
-                          step="0.5"
-                          value={projectHours[`${day}_hours`] || ''}
-                          onChange={e => handleHourChange(project.id, day, e.target.value)}
-                          onBlur={e => {
-                            // Convert empty or invalid values to 0
-                            if (!e.target.value || isNaN(parseFloat(e.target.value))) {
-                              handleHourChange(project.id, day, '0');
-                            }
-                          }}
-                          className="w-20 text-center rounded-lg border-gray-300 shadow-sm
-                            focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
-                            hover:border-gray-400 transition-colors
-                            placeholder-gray-400"
-                          placeholder="0.0"
-                        />
-                      </div>
-                    </td>
-                  ))}
+                  {weekDays.map(day => {
+                    const dayKey = getDayKey(day);
+                    return (
+                      <td key={day.toString()} className="py-4 px-6">
+                        <div className="flex justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            step="0.5"
+                            value={projectHours[dayKey] || ''}
+                            onChange={e => handleHourChange(project.id, format(day, 'EEEE').toLowerCase(), e.target.value)}
+                            disabled={isReadOnly}
+                            className={`
+                              w-20 text-center rounded-lg border-gray-300 shadow-sm
+                              focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
+                              hover:border-gray-400 transition-colors
+                              placeholder-gray-400
+                              ${isReadOnly ? 
+                                'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 
+                                'bg-white'
+                              }
+                            `}
+                            placeholder="0.0"
+                          />
+                        </div>
+                      </td>
+                    );
+                  })}
                   <td className="py-4 px-6 text-center">
                     <div className="inline-flex items-center justify-center min-w-[3rem] px-3 py-1 bg-[#1732ca]/10 rounded-full">
                       <span className="font-semibold text-[#1732ca]">{total}</span>

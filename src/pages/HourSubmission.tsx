@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { startOfWeek, endOfWeek, format, addDays, subWeeks, addWeeks, parseISO, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
+import { startOfWeek, endOfWeek, format, addDays, subWeeks, addWeeks, parseISO, startOfMonth, endOfMonth, subMonths, addMonths, isSameWeek, isSameMonth, isWithinInterval, startOfDay } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Project, Timesheet } from '../types';
-import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { SubmissionForm } from '../components/hourSubmission/SubmissionForm';
 import { SubmissionHistory } from '../components/hourSubmission/SubmissionHistory';
 
@@ -51,6 +51,20 @@ const ApprovedWeekWarning: React.FC<{
   );
 };
 
+const generateCalendarDays = (date: Date) => {
+  const start = startOfWeek(startOfMonth(date), { weekStartsOn: 1 });
+  const end = endOfWeek(endOfMonth(date), { weekStartsOn: 1 });
+  const days = [];
+  let currentDay = start;
+
+  while (currentDay <= end) {
+    days.push(currentDay);
+    currentDay = addDays(currentDay, 1);
+  }
+
+  return days;
+};
+
 export const HourSubmission = () => {
   const { user } = useAuthStore();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -71,7 +85,11 @@ export const HourSubmission = () => {
     year: 0
   });
   const [expandedTimesheets, setExpandedTimesheets] = useState<string[]>([]);
-
+  const [isWeekPickerOpen, setIsWeekPickerOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [timesheetStatus, setTimesheetStatus] = useState<'draft' | 'submitted' | 'approved' | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekNumber = parseInt(format(weekStart, 'w'));
@@ -88,19 +106,25 @@ export const HourSubmission = () => {
   };
 
   useEffect(() => {
-    const weeks = [];
     const currentDate = new Date();
-    const startDate = subWeeks(currentDate, 12);
+    const currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     
-    for (let i = 0; i < 17; i++) {
-      const date = addWeeks(startDate, i);
-      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    // Get weeks for 6 months back and 6 months ahead
+    const startDate = subMonths(currentWeekStart, 6);
+    const endDate = addMonths(currentWeekStart, 6);
+    
+    const weeks = [];
+    let currentWeek = startDate;
+    
+    while (currentWeek <= endDate) {
       weeks.push({
-        weekNumber: parseInt(format(weekStart, 'w')),
-        year: parseInt(format(weekStart, 'yyyy')),
-        startDate: weekStart,
+        weekNumber: parseInt(format(currentWeek, 'w')),
+        year: parseInt(format(currentWeek, 'yyyy')),
+        startDate: currentWeek,
       });
+      currentWeek = addWeeks(currentWeek, 1);
     }
+    
     setAvailableWeeks(weeks);
   }, []);
 
@@ -109,7 +133,6 @@ export const HourSubmission = () => {
       if (!user) return;
 
       try {
-        // Fetch user's projects
         const { data: projectUsers } = await supabase
           .from('project_users')
           .select('project_id')
@@ -125,7 +148,22 @@ export const HourSubmission = () => {
 
           setProjects(projects || []);
         }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load data. Please try again.');
+      } finally {
+        setInitialLoading(false);
+      }
+    };
 
+    fetchData();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchTimesheetData = async () => {
+      if (!user) return;
+
+      try {
         // Fetch existing timesheets for the selected week
         const { data: timesheets } = await supabase
           .from('timesheets')
@@ -134,45 +172,40 @@ export const HourSubmission = () => {
           .eq('week_number', weekNumber)
           .eq('year', year);
 
-        // Map timesheet data to hours state
-        const hoursMap: Record<string, Record<string, number>> = {};
-        timesheets?.forEach(timesheet => {
-          if (timesheet.status !== 'approved') {
-            hoursMap[timesheet.project_id] = {
+        if (timesheets && timesheets.length > 0) {
+          const hoursData: Record<string, Record<string, number>> = {};
+          timesheets.forEach(timesheet => {
+            hoursData[timesheet.project_id] = {
               monday_hours: timesheet.monday_hours || 0,
               tuesday_hours: timesheet.tuesday_hours || 0,
               wednesday_hours: timesheet.wednesday_hours || 0,
               thursday_hours: timesheet.thursday_hours || 0,
               friday_hours: timesheet.friday_hours || 0,
             };
-          }
-        });
-        setHours(hoursMap);
+          });
+          setHours(hoursData);
+          setTimesheetStatus(timesheets[0].status);
+        } else {
+          setHours({});
+          setTimesheetStatus(null);
+        }
 
-        // Fetch submitted timesheets for the selected month
-        const monthStart = startOfMonth(selectedMonth);
-        const monthEnd = endOfMonth(selectedMonth);
-
+        // Fetch submitted timesheets for the month view
         const { data: submittedData } = await supabase
           .from('timesheets')
-          .select(`
-            *,
-            project:projects(*)
-          `)
+          .select('*, project:projects(*)')
           .eq('user_id', user.id)
           .eq('year', format(selectedMonth, 'yyyy'))
           .order('week_number', { ascending: false });
 
         setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load data. Please try again.');
-      } finally {
-        setLoading(false);
+        console.error('Error fetching timesheet:', error);
+        setError('Failed to load timesheet data');
       }
     };
 
-    fetchData();
+    fetchTimesheetData();
   }, [user, weekNumber, year, selectedMonth]);
 
   const handleHourChange = (projectId: string, day: string, value: string) => {
@@ -183,7 +216,7 @@ export const HourSubmission = () => {
       ...prev,
       [projectId]: {
         ...prev[projectId],
-        [`${day}_hours`]: numValue, // Always store as number, never null
+        [`${day}_hours`]: numValue,
       },
     }));
   };
@@ -321,15 +354,24 @@ export const HourSubmission = () => {
     }
   };
 
-  const handleWeekChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const [selectedYear, selectedWeek] = e.target.value.split('-').map(Number);
-    const selectedWeekData = availableWeeks.find(
-      w => w.year === selectedYear && w.weekNumber === selectedWeek
-    );
-    if (selectedWeekData) {
-      setSelectedDate(selectedWeekData.startDate);
-      setApprovedWeekDialog({ show: false, weekNumber: 0, year: 0 });
+  const getWeekDays = (startDate: Date) => {
+    const days = [];
+    const weekStart = startOfWeek(startDate, { weekStartsOn: 1 }); // Start from Monday
+    
+    for (let i = 0; i < 5; i++) { // Only get Monday to Friday
+      days.push(addDays(weekStart, i));
     }
+    
+    return days;
+  };
+
+  const handleWeekSelect = (date: Date) => {
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const weekNumber = parseInt(format(weekStart, 'I')); // ISO week number
+    const year = parseInt(format(weekStart, 'yyyy'));
+    
+    setSelectedDate(date);
+    setIsWeekPickerOpen(false);
   };
 
   const handleEditTimesheet = (timesheet: TimesheetWithProject) => {
@@ -359,7 +401,7 @@ export const HourSubmission = () => {
     setEditingTimesheet(timesheet);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-[#1732ca]" />
@@ -368,104 +410,181 @@ export const HourSubmission = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Hour Submission</h1>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setSelectedDate(prev => addDays(prev, -7))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="relative">
-            <select
-              value={`${year}-${weekNumber}`}
-              onChange={handleWeekChange}
-              className="appearance-none bg-white pl-10 pr-8 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1732ca] focus:border-[#1732ca] transition-shadow"
-            >
-              {availableWeeks.map(week => (
-                <option 
-                  key={`${week.year}-${week.weekNumber}`} 
-                  value={`${week.year}-${week.weekNumber}`}
-                >
-                  Week {week.weekNumber} ({format(week.startDate, 'MMM d')} - {format(addDays(week.startDate, 4), 'MMM d, yyyy')})
-                </option>
-              ))}
-            </select>
-            <Calendar className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          </div>
-          <button
-            onClick={() => setSelectedDate(prev => addDays(prev, 7))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          <p>{error}</p>
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
-          <p>Hours submitted successfully!</p>
-        </div>
-      )}
-
-      {editingTimesheet && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-600 flex items-center justify-between">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900">Submit Hours</h1>
+          
           <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            <p>Editing timesheet for Week {editingTimesheet.week_number}, {editingTimesheet.year}</p>
+            <button
+              onClick={() => {
+                const newDate = subWeeks(selectedDate, 1);
+                handleWeekSelect(newDate);
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            
+            <button
+              onClick={() => setIsWeekPickerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <Calendar className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium">
+                Week {weekNumber}, {year}
+                <span className="text-gray-500 ml-2">
+                  ({format(selectedDate, 'MMM d')} - {format(addDays(selectedDate, 4), 'MMM d')})
+                </span>
+              </span>
+            </button>
+            
+            <button
+              onClick={() => {
+                const newDate = addWeeks(selectedDate, 1);
+                handleWeekSelect(newDate);
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
           </div>
+        </div>
+
+        {timesheetStatus === 'approved' && (
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-gray-600">
+              This timesheet has been approved. You cannot make changes to approved timesheets.
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            <p>Hours submitted successfully!</p>
+          </div>
+        )}
+
+        <SubmissionForm
+          projects={projects}
+          hours={hours}
+          weekDays={weekDays}
+          handleHourChange={handleHourChange}
+          isReadOnly={timesheetStatus === 'approved'}
+        />
+
+        {editingTimesheet && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+            <p className="text-blue-600">
+              Editing timesheet for Week {editingTimesheet.week_number}, {editingTimesheet.year}
+            </p>
+            <button
+              onClick={() => setEditingTimesheet(null)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        <div className="flex justify-end mt-6">
           <button
-            onClick={() => {
-              setEditingTimesheet(null);
-              setHours({});
-            }}
-            className="text-blue-600 hover:text-blue-700"
+            onClick={handleSubmit}
+            disabled={saving || timesheetStatus === 'approved'}
+            className="px-6 py-2.5 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90 disabled:opacity-50 font-medium"
           >
-            Cancel Edit
+            {saving ? 'Submitting...' : 'Submit Hours'}
           </button>
+        </div>
+
+        <div className="mt-8">
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Your Submissions</h2>
+              <SubmissionHistory
+                timesheets={submittedTimesheets}
+                expandedTimesheets={expandedTimesheets}
+                toggleTimesheet={toggleTimesheet}
+                onEdit={handleEditTimesheet}
+                selectedMonth={selectedMonth}
+                showHeader={false}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isWeekPickerOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Select Week</h3>
+              <button
+                onClick={() => setIsWeekPickerOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              
+              <span className="text-lg font-medium">
+                {format(currentMonth, 'MMMM yyyy')}
+              </span>
+              
+              <button
+                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-7 gap-1">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                  {day}
+                </div>
+              ))}
+              
+              {generateCalendarDays(currentMonth).map(day => {
+                const isSelected = isSameWeek(selectedDate, day, { weekStartsOn: 1 });
+                const isCurrentMonth = isSameMonth(currentMonth, day);
+                
+                return (
+                  <button
+                    key={day.toString()}
+                    onClick={() => handleWeekSelect(day)}
+                    className={`
+                      py-2 rounded-lg text-sm
+                      ${isSelected ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}
+                      ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}
+                    `}
+                  >
+                    {format(day, 'd')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
-      <SubmissionForm
-        projects={projects}
-        hours={hours}
-        weekDays={weekDays}
-        handleHourChange={handleHourChange}
-      />
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleSubmit}
-          disabled={saving}
-          className="px-6 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90 
-            focus:outline-none focus:ring-2 focus:ring-[#1732ca] focus:ring-offset-2 
-            disabled:opacity-50 flex items-center gap-2 shadow-sm transition-colors"
-        >
-          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-          {saving ? 'Submitting...' : editingTimesheet ? 'Update Hours' : 'Submit Hours'}
-        </button>
-      </div>
-
-      <SubmissionHistory
-        timesheets={submittedTimesheets}
-        selectedMonth={selectedMonth}
-        expandedTimesheets={expandedTimesheets}
-        onToggleTimesheet={toggleTimesheet}
-        onEditTimesheet={handleEditTimesheet}
-        onMonthChange={setSelectedMonth}
-      />
-
-      {/* Confirmation Dialog */}
       {showConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
