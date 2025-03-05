@@ -508,7 +508,26 @@ export const HourSubmission = () => {
         <div className="mt-8">
           <div className="bg-white rounded-lg shadow-lg border border-gray-200">
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Your Submissions</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Your Submissions</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <span className="text-sm font-medium">
+                    {format(selectedMonth, 'MMMM yyyy')}
+                  </span>
+                  <button
+                    onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
               <SubmissionHistory
                 timesheets={submittedTimesheets}
                 expandedTimesheets={expandedTimesheets}
