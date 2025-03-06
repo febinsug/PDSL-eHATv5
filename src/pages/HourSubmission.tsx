@@ -67,7 +67,10 @@ const generateCalendarDays = (date: Date) => {
 
 export const HourSubmission = () => {
   const { user } = useAuthStore();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return startOfWeek(today, { weekStartsOn: 1 });
+  });
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [projects, setProjects] = useState<Project[]>([]);
   const [hours, setHours] = useState<Record<string, Record<string, number>>>({});
@@ -367,10 +370,10 @@ export const HourSubmission = () => {
 
   const handleWeekSelect = (date: Date) => {
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    const weekNumber = parseInt(format(weekStart, 'I')); // ISO week number
+    const weekNumber = parseInt(format(weekStart, 'w'));
     const year = parseInt(format(weekStart, 'yyyy'));
     
-    setSelectedDate(date);
+    setSelectedDate(weekStart);
     setIsWeekPickerOpen(false);
   };
 
