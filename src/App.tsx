@@ -10,6 +10,7 @@ import { People } from './pages/People';
 import { Settings } from './pages/Settings';
 import { Team } from './pages/Team';
 import { useAuthStore } from './store/authStore';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const { hydrate } = useAuthStore();
@@ -19,48 +20,51 @@ function App() {
   }, [hydrate]);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/eHAT" element={<Login />} />
-        <Route path="/" element={
-          <Layout>
-            <Overview />
-          </Layout>
-        } />
-        <Route path="/hours" element={
-          <Layout>
-            <HourSubmission />
-          </Layout>
-        } />
-        <Route path="/projects" element={
-          <Layout>
-            <Projects />
-          </Layout>
-        } />
-        <Route path="/approvals" element={
-          <Layout>
-            <Approvals />
-          </Layout>
-        } />
-        <Route path="/team" element={
-          <Layout>
-            <Team />
-          </Layout>
-        } />
-        <Route path="/people" element={
-          <Layout>
-            <People />
-          </Layout>
-        } />
-        <Route path="/settings" element={
-          <Layout>
-            <Settings />
-          </Layout>
-        } />
-        {/* Catch all route - redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <Toaster position="top-right" />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/eHAT" element={<Login />} />
+          <Route path="/" element={
+            <Layout>
+              <Overview />
+            </Layout>
+          } />
+          <Route path="/hours" element={
+            <Layout>
+              <HourSubmission />
+            </Layout>
+          } />
+          <Route path="/projects" element={
+            <Layout>
+              <Projects />
+            </Layout>
+          } />
+          <Route path="/approvals" element={
+            <Layout>
+              <Approvals />
+            </Layout>
+          } />
+          <Route path="/team" element={
+            <Layout>
+              <Team />
+            </Layout>
+          } />
+          <Route path="/people" element={
+            <Layout>
+              <People />
+            </Layout>
+          } />
+          <Route path="/settings" element={
+            <Layout>
+              <Settings />
+            </Layout>
+          } />
+          {/* Catch all route - redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 

@@ -12,8 +12,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    rollupOptions: {
-      external: ['react-hot-toast']
-    }
   },
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  }
 });
