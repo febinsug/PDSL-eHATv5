@@ -155,6 +155,7 @@ export const Overview = () => {
   const [selectedProject, setSelectedProject] = useState<ProjectUtilizationDetailsType | null>(null);
   const [selectedUserHours, setSelectedUserHours] = useState<UserHours | null>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [viewType, setViewType] = useState<'team' | 'organization'>('team');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -167,6 +168,17 @@ export const Overview = () => {
         const monthStart = startOfMonth(selectedMonth);
         const monthEnd = endOfMonth(selectedMonth);
         const year = getYear(selectedMonth);
+
+        // First get team members if viewing team data
+        let teamMemberIds: string[] = [];
+        if (user.role === 'manager' && viewType === 'team') {
+          const { data: teamMembers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('manager_id', user.id);
+          
+          teamMemberIds = teamMembers?.map(member => member.id) || [];
+        }
 
         let query = supabase
           .from('timesheets')
@@ -188,8 +200,11 @@ export const Overview = () => {
           `)
           .eq('year', year);
 
+        // Apply filters based on role and view type
         if (user.role === 'user') {
           query = query.eq('user_id', user.id);
+        } else if (user.role === 'manager' && viewType === 'team') {
+          query = query.in('user_id', teamMemberIds);
         }
 
         const { data: timesheetsData, error: timesheetsError } = await query;
@@ -272,11 +287,24 @@ export const Overview = () => {
         setProjects(activeProjects);
 
         // Calculate project hours for charts
-        const projectHoursData = activeProjects.map(project => ({
-          name: project.name,
-          hours: project.totalHours,
-          color: project.color,
-        }));
+        const projectHoursData = activeProjects.map(project => {
+          // For regular users, only calculate their own hours
+          const monthlyHours = monthTimesheets
+            .filter(t => {
+              const weekStart = startOfWeek(new Date(t.year, 0, 1 + (t.week_number - 1) * 7), { weekStartsOn: 1 });
+              return isSameMonth(weekStart, selectedMonth);
+            })
+            .filter(t => user.role === 'user' ? t.user_id === user.id : true)
+            .filter(t => t.project.id === project.id)
+            .reduce((sum, t) => sum + (t.total_hours || 0), 0);
+
+          return {
+            name: project.name,
+            hours: monthlyHours,
+            color: project.color,
+          };
+        }).filter(p => p.hours > 0); // Only include projects with hours > 0
+
         setProjectHours(projectHoursData);
 
         // Calculate statistics
@@ -390,7 +418,7 @@ export const Overview = () => {
     };
 
     fetchData();
-  }, [user, selectedMonth]);
+  }, [user, selectedMonth, viewType]);
 
   const handleProjectClick = async (project: Project) => {
     try {
@@ -412,23 +440,44 @@ export const Overview = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
         <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-semibold text-gray-900">Overview</h1>
+          {user?.role === 'manager' && (
+            <div className="flex items-center">
+              <span className="text-gray-500 mr-2 text-base">for</span>
+              <div className="relative inline-block">
+                <select
+                  value={viewType}
+                  onChange={(e) => setViewType(e.target.value as 'team' | 'organization')}
+                  className="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-1.5 text-base text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:bg-gray-50"
+                >
+                  <option value="team">My Team</option>
+                  <option value="organization">PDSL</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setSelectedMonth(prev => subMonths(prev, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+            className="p-1.5 hover:bg-gray-100 rounded-full"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <span className="text-lg font-medium">
+          <span className="text-sm font-medium text-gray-900">
             {format(selectedMonth, 'MMMM yyyy')}
           </span>
           <button
-            onClick={() => setSelectedMonth(prev => addMonths(prev, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={selectedMonth >= new Date()}
+            onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+            className="p-1.5 hover:bg-gray-100 rounded-full"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5 text-gray-600" />
           </button>
         </div>
       </div>

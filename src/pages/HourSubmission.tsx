@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { startOfWeek, endOfWeek, format, addDays, subWeeks, addWeeks, parseISO, startOfMonth, endOfMonth, subMonths, addMonths, isSameWeek, isSameMonth, isWithinInterval, startOfDay } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Project, Timesheet } from '../types';
-import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Calendar, Clock, AlertCircle, CheckCircle, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { SubmissionForm } from '../components/hourSubmission/SubmissionForm';
 import { SubmissionHistory } from '../components/hourSubmission/SubmissionHistory';
+import toast from 'react-hot-toast';
+import { TimesheetBreakdown } from "../components/shared/TimesheetBreakdown";
+import { calculateTotalHours } from "../utils/timesheet";
+import type { TimesheetWithDetails } from '../../types';
 
 interface TimesheetWithProject extends Timesheet {
   project: Project;
@@ -15,6 +19,16 @@ interface ApprovedWeekDialog {
   show: boolean;
   weekNumber: number;
   year: number;
+}
+
+interface GroupedTimesheet {
+  userId: string;
+  userName: string;
+  designation: string;
+  weekNumber: number;
+  year: number;
+  timesheets: TimesheetWithDetails[];
+  totalHours: number;
 }
 
 const ApprovedWeekWarning: React.FC<{
@@ -92,6 +106,7 @@ export const HourSubmission = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [timesheetStatus, setTimesheetStatus] = useState<'draft' | 'submitted' | 'approved' | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -105,6 +120,14 @@ export const HourSubmission = () => {
       prev.includes(timesheetId)
         ? prev.filter(id => id !== timesheetId)
         : [...prev, timesheetId]
+    );
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId)
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
     );
   };
 
@@ -237,123 +260,54 @@ export const HourSubmission = () => {
     return true;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!user) return;
+    
     setError('');
-    if (!validateHours()) return;
+    setSuccess(false);
+    
+    try {
+      if (!validateHours()) return;
 
-    // Check for approved timesheets before showing confirmation
-    const checkApprovedTimesheets = async () => {
-      try {
-        // Get all projects with hours entered
-        const projectsWithHours = Object.entries(hours)
-          .filter(([_, projectHours]) => Object.values(projectHours).some(value => value > 0))
-          .map(([projectId]) => projectId);
+      // Show confirmation dialog first
+      setShowConfirmation(true);
 
-        if (projectsWithHours.length === 0) return;
-
-        // Check if any of these projects have approved timesheets for this week
-        const { data: approvedTimesheets } = await supabase
-          .from('timesheets')
-          .select('project_id')
-          .eq('user_id', user?.id)
-          .eq('week_number', weekNumber)
-          .eq('year', year)
-          .eq('status', 'approved')
-          .in('project_id', projectsWithHours);
-
-        if (approvedTimesheets && approvedTimesheets.length > 0) {
-          setApprovedWeekDialog({
-            show: true,
-            weekNumber,
-            year
-          });
-          return;
-        }
-
-        // If no approved timesheets found, show the confirmation dialog
-        setShowConfirmation(true);
-      } catch (error) {
-        console.error('Error checking approved timesheets:', error);
-        setError('Failed to check timesheet status');
-      }
-    };
-
-    checkApprovedTimesheets();
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to submit timesheet');
+    }
   };
 
   const confirmSubmit = async () => {
-    if (!user) return;
-    setSaving(true);
-    setError('');
-    setSuccess(false);
-
     try {
-      // Prepare timesheet data
-      const timesheetData = Object.entries(hours)
+      // Get all projects with hours entered
+      const projectsWithHours = Object.entries(hours)
         .filter(([_, projectHours]) => Object.values(projectHours).some(value => value > 0))
-        .map(([projectId, projectHours]) => ({
-          user_id: user.id,
-          project_id: projectId,
-          week_number: weekNumber,
-          year: year,
-          monday_hours: projectHours.monday_hours || 0,
-          tuesday_hours: projectHours.tuesday_hours || 0,
-          wednesday_hours: projectHours.wednesday_hours || 0,
-          thursday_hours: projectHours.thursday_hours || 0,
-          friday_hours: projectHours.friday_hours || 0,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-          rejection_reason: null,
-        }));
+        .map(([projectId]) => projectId);
 
-      if (timesheetData.length === 0) {
-        throw new Error('No hours to submit');
+      // Submit timesheets
+      for (const [projectId, projectHours] of Object.entries(hours)) {
+        if (Object.values(projectHours).some(value => value > 0)) {
+          await supabase.from('timesheets').upsert({
+            user_id: user.id,
+            project_id: projectId,
+            week_number: weekNumber,
+            year: year,
+            ...projectHours,
+            status: 'submitted',
+            submitted_at: new Date().toISOString(),
+          });
+        }
       }
 
-      // Delete existing timesheets for this week
-      const { error: deleteError } = await supabase
-        .from('timesheets')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('week_number', weekNumber)
-        .eq('year', year);
-
-      if (deleteError) {
-        console.error('Delete error:', deleteError);
-        throw new Error('Failed to update existing timesheets');
-      }
-
-      // Insert new timesheets
-      const { error: insertError } = await supabase
-        .from('timesheets')
-        .insert(timesheetData);
-
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw new Error('Failed to submit timesheets');
-      }
-
-      // Refresh submitted timesheets
-      const { data: submittedData } = await supabase
-        .from('timesheets')
-        .select(`
-          *,
-          project:projects(*)
-        `)
-        .eq('user_id', user.id)
-        .eq('year', format(selectedMonth, 'yyyy'))
-        .order('week_number', { ascending: false });
-
-      setSubmittedTimesheets(submittedData as TimesheetWithProject[] || []);
-      setSuccess(true);
       setShowConfirmation(false);
+      toast.success('Hours submitted successfully!');
       setHours({});
       setEditingTimesheet(null);
+
     } catch (error) {
-      console.error('Error saving timesheets:', error);
-      setError(error instanceof Error ? error.message : 'Failed to submit hours');
-    } finally {
-      setSaving(false);
+      console.error('Error submitting timesheet:', error);
+      setError('Failed to submit timesheet');
     }
   };
 
@@ -402,7 +356,41 @@ export const HourSubmission = () => {
       },
     });
     setEditingTimesheet(timesheet);
+    toast.success('Now editing timesheet');
   };
+
+  const processTimesheets = (timesheets: any[]) => {
+    const groups = new Map();
+    
+    timesheets.forEach(timesheet => {
+      // Add null checks to prevent undefined errors
+      if (!timesheet?.user) return;
+      
+      const key = `${timesheet.user.id}-${timesheet.week_number}-${timesheet.year}`;
+      
+      if (!groups.has(key)) {
+        groups.set(key, {
+          userId: timesheet.user.id,
+          userName: timesheet.user.full_name || timesheet.user.username || 'Unknown User',
+          designation: timesheet.user.designation || '-',
+          weekNumber: timesheet.week_number,
+          year: timesheet.year,
+          totalHours: 0,
+          timesheets: []
+        });
+      }
+      
+      const group = groups.get(key);
+      group.totalHours += calculateTotalHours(timesheet);
+      group.timesheets.push(timesheet);
+    });
+    
+    return Array.from(groups.values());
+  };
+
+  const groupedTimesheets = useMemo(() => {
+    return processTimesheets(submittedTimesheets);
+  }, [submittedTimesheets]);
 
   if (initialLoading) {
     return (
@@ -501,10 +489,10 @@ export const HourSubmission = () => {
         <div className="flex justify-end mt-6">
           <button
             onClick={handleSubmit}
-            disabled={saving || timesheetStatus === 'approved'}
+            disabled={timesheetStatus === 'approved'}
             className="px-6 py-2.5 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90 disabled:opacity-50 font-medium"
           >
-            {saving ? 'Submitting...' : 'Submit Hours'}
+            Submit Hours
           </button>
         </div>
 

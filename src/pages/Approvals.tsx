@@ -74,6 +74,7 @@ export const Approvals = () => {
   });
   const [selectedTimesheets, setSelectedTimesheets] = useState<string[]>([]);
   const [expandedTimesheets, setExpandedTimesheets] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -92,6 +93,9 @@ export const Approvals = () => {
       setUsers(usersResponse.data || []);
       setProjects(projectsResponse.data || []);
 
+      // Store all users in a map for quick lookup
+      const usersMap = new Map(usersResponse.data?.map(u => [u.id, u]) || []);
+
       let query = supabase
         .from('timesheets')
         .select(`
@@ -101,7 +105,8 @@ export const Approvals = () => {
             username, 
             full_name, 
             role,
-            designation
+            designation,
+            manager_id
           ),
           project:projects!inner(id, name),
           approver:users!timesheets_approved_by_fkey(
@@ -129,8 +134,17 @@ export const Approvals = () => {
       if (error) throw error;
 
       if (timesheets) {
+        // Attach manager details to each timesheet
+        const enrichedTimesheets = timesheets.map(timesheet => ({
+          ...timesheet,
+          user: {
+            ...timesheet.user,
+            manager: usersMap.get(timesheet.user.manager_id)
+          }
+        }));
+
         // Filter timesheets based on the week they belong to
-        const monthTimesheets = timesheets.filter(timesheet => 
+        const monthTimesheets = enrichedTimesheets.filter(timesheet => 
           isTimesheetInMonth(timesheet, selectedMonth)
         );
 
@@ -321,6 +335,14 @@ export const Approvals = () => {
     );
   };
 
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId)
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -367,7 +389,9 @@ export const Approvals = () => {
         <PendingApprovals
           timesheets={managerTimesheets}
           processing={processing}
+          expandedGroups={expandedGroups}
           expandedTimesheets={expandedTimesheets}
+          onToggleGroup={toggleGroup}
           onToggleTimesheet={toggleTimesheet}
           onApprove={handleApproval}
         />
