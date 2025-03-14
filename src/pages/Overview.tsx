@@ -75,6 +75,7 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
         .select('*')
         .eq('project_id', project.id)
         .lte('year', getYear(currentSelectedMonth))
+        .neq('status', 'rejected')
     ]);
 
     const users = usersResponse.data?.map(pu => ({
@@ -94,16 +95,19 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
 
       const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
       
-      // Calculate cumulative hours
-      if (timesheet.year < getYear(currentSelectedMonth) || 
-          (timesheet.year === getYear(currentSelectedMonth) && weekStart <= endOfMonth(currentSelectedMonth))) {
-        user.hours += timesheet.total_hours || 0;
-      }
+      // Only count approved or pending timesheets
+      if (timesheet.status !== 'rejected') {
+        // Calculate cumulative hours
+        if (timesheet.year < getYear(currentSelectedMonth) || 
+            (timesheet.year === getYear(currentSelectedMonth) && weekStart <= endOfMonth(currentSelectedMonth))) {
+          user.hours += timesheet.total_hours || 0;
+        }
 
-      // Calculate current month hours
-      if (timesheet.year === getYear(currentSelectedMonth) && 
-          isSameMonth(weekStart, currentSelectedMonth)) {
-        user.monthlyHours += timesheet.total_hours || 0;
+        // Calculate current month hours
+        if (timesheet.year === getYear(currentSelectedMonth) && 
+            isSameMonth(weekStart, currentSelectedMonth)) {
+          user.monthlyHours += timesheet.total_hours || 0;
+        }
       }
     });
 
@@ -134,7 +138,7 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
     };
   } catch (error) {
     console.error('Error fetching project details:', error);
-    throw new Error('Failed to load project details');
+    return null;
   }
 };
 
@@ -212,8 +216,12 @@ export const Overview = () => {
 
         if (timesheetsError) throw timesheetsError;
 
-        // Filter timesheets for the selected month
+        // Filter timesheets for the selected month and status (not rejected)
         const monthTimesheets = (timesheetsData || []).filter(timesheet => {
+          // First check status
+          if (timesheet.status === 'rejected') return false;
+          
+          // Then check month
           const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
           let daysInSelectedMonth = 0;
           for (let i = 0; i < 7; i++) {
@@ -293,7 +301,7 @@ export const Overview = () => {
           const monthlyHours = monthTimesheets
             .filter(t => {
               const weekStart = startOfWeek(new Date(t.year, 0, 1 + (t.week_number - 1) * 7), { weekStartsOn: 1 });
-              return isSameMonth(weekStart, selectedMonth);
+              return isSameMonth(weekStart, selectedMonth) && t.status !== 'rejected';
             })
             .filter(t => user.role === 'user' ? t.user_id === user.id : true)
             .filter(t => t.project.id === project.id)
@@ -304,7 +312,7 @@ export const Overview = () => {
             hours: monthlyHours,
             color: project.color,
           };
-        }).filter(p => p.hours > 0); // Only include projects with hours > 0
+        }).filter(p => p.hours > 0);
 
         setProjectHours(projectHoursData);
 

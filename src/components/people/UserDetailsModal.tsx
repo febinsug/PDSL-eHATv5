@@ -23,6 +23,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClos
             project:projects(*)
           `)
           .eq('user_id', user.id)
+          .neq('status', 'rejected')
           .order('submitted_at', { ascending: false });
 
         if (data) {
