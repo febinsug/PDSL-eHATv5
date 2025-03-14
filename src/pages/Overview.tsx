@@ -177,7 +177,8 @@ export const Overview = () => {
             .select('id')
             .eq('manager_id', user.id);
           
-          teamMemberIds = teamMembers?.map(member => member.id) || [];
+          // Include manager's own ID in the team view
+          teamMemberIds = [...(teamMembers?.map(member => member.id) || []), user.id];
         }
 
         let query = supabase
