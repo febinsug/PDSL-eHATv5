@@ -266,48 +266,121 @@ export const HourSubmission = () => {
     setError('');
     setSuccess(false);
     
-    try {
-      if (!validateHours()) return;
-
-      // Show confirmation dialog first
-      setShowConfirmation(true);
-
-    } catch (error) {
-      console.error('Error:', error);
-      setError('Failed to submit timesheet');
-    }
+    if (!validateHours()) return;
+    
+    // Show confirmation dialog instead of submitting directly
+    setShowConfirmation(true);
   };
 
   const confirmSubmit = async () => {
+    if (!user) return;
+    
     try {
+      setSaving(true);
+      
       // Get all projects with hours entered
       const projectsWithHours = Object.entries(hours)
         .filter(([_, projectHours]) => Object.values(projectHours).some(value => value > 0))
         .map(([projectId]) => projectId);
-
+      
+      if (projectsWithHours.length === 0) {
+        setError('Please enter hours for at least one project');
+        return;
+      }
+      
       // Submit timesheets
       for (const [projectId, projectHours] of Object.entries(hours)) {
         if (Object.values(projectHours).some(value => value > 0)) {
-          await supabase.from('timesheets').upsert({
+          // Create the timesheet data object with the correct field names
+          // Omit total_hours as it seems to be calculated by a trigger or default value
+          const timesheetData = {
             user_id: user.id,
             project_id: projectId,
             week_number: weekNumber,
             year: year,
-            ...projectHours,
-            status: 'submitted',
+            monday_hours: projectHours.monday_hours || 0,
+            tuesday_hours: projectHours.tuesday_hours || 0,
+            wednesday_hours: projectHours.wednesday_hours || 0,
+            thursday_hours: projectHours.thursday_hours || 0,
+            friday_hours: projectHours.friday_hours || 0,
+            status: 'pending',
             submitted_at: new Date().toISOString(),
-          });
+          };
+          
+          if (editingTimesheet && editingTimesheet.project_id === projectId) {
+            // Update existing timesheet
+            const { error } = await supabase
+              .from('timesheets')
+              .update(timesheetData)
+              .eq('id', editingTimesheet.id);
+              
+            if (error) {
+              console.error('Update error:', error);
+              throw new Error(`Failed to update timesheet: ${error.message}`);
+            }
+          } else {
+            // Check if a timesheet already exists for this week/project
+            const { data: existingTimesheet } = await supabase
+              .from('timesheets')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('project_id', projectId)
+              .eq('week_number', weekNumber)
+              .eq('year', year)
+              .single();
+            
+            if (existingTimesheet) {
+              // Update existing timesheet
+              const { error } = await supabase
+                .from('timesheets')
+                .update(timesheetData)
+                .eq('id', existingTimesheet.id);
+                
+              if (error) {
+                console.error('Update error:', error);
+                throw new Error(`Failed to update timesheet: ${error.message}`);
+              }
+            } else {
+              // Insert new timesheet
+              const { error } = await supabase
+                .from('timesheets')
+                .insert(timesheetData);
+                
+              if (error) {
+                console.error('Insert error:', error);
+                throw new Error(`Failed to insert timesheet: ${error.message}`);
+              }
+            }
+          }
         }
       }
-
+      
+      // Immediately fetch the updated timesheets to refresh the list
+      const { data: updatedTimesheets, error: fetchError } = await supabase
+        .from('timesheets')
+        .select('*, project:projects(*)')
+        .eq('user_id', user.id)
+        .eq('year', format(selectedMonth, 'yyyy'))
+        .order('week_number', { ascending: false });
+      
+      if (fetchError) throw fetchError;
+      
+      setSubmittedTimesheets(updatedTimesheets as TimesheetWithProject[] || []);
       setShowConfirmation(false);
-      toast.success('Hours submitted successfully!');
+      setSuccess(true);
       setHours({});
       setEditingTimesheet(null);
-
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess(false);
+      }, 3000);
+      
     } catch (error) {
       console.error('Error submitting timesheet:', error);
-      setError('Failed to submit timesheet');
+      setError(error instanceof Error ? error.message : 'Failed to submit timesheet');
+    } finally {
+      setSaving(false);
     }
   };
 

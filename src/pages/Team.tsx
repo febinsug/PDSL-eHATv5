@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import type { User, Project } from '../types';
 
 interface TeamMember extends User {
-  projects: Project[];
+  projects: (Project & { hours: number; status: string })[];
 }
 
 export const Team = () => {
@@ -28,22 +28,51 @@ export const Team = () => {
 
         if (membersError) throw membersError;
 
-        // Fetch project assignments for each team member
+        // Fetch project assignments and hours for each team member
         const membersWithProjects = await Promise.all(
           (members || []).map(async (member) => {
+            // Get project assignments
             const { data: projectAssignments } = await supabase
               .from('project_users')
               .select('project:projects(*)')
               .eq('user_id', member.id);
+            
+            // Get timesheet data for hours calculation
+            const { data: timesheets } = await supabase
+              .from('timesheets')
+              .select('project_id, total_hours')
+              .eq('user_id', member.id)
+              .neq('status', 'rejected');
+            
+            // Calculate hours per project
+            const projectHours = new Map<string, number>();
+            (timesheets || []).forEach(timesheet => {
+              const currentHours = projectHours.get(timesheet.project_id) || 0;
+              projectHours.set(timesheet.project_id, currentHours + (timesheet.total_hours || 0));
+            });
+            
+            // Combine project data with hours
+            const projectsWithHours = (projectAssignments?.map(pa => ({
+              ...pa.project,
+              hours: projectHours.get(pa.project.id) || 0,
+              status: pa.project.status || 'active'
+            })) || []);
 
             return {
               ...member,
-              projects: projectAssignments?.map(pa => pa.project) || [],
+              projects: projectsWithHours,
             };
           })
         );
 
-        setTeamMembers(membersWithProjects);
+        // Sort team members alphabetically by name
+        const sortedMembers = membersWithProjects.sort((a, b) => {
+          const nameA = a.full_name || a.username;
+          const nameB = b.full_name || b.username;
+          return nameA.localeCompare(nameB);
+        });
+
+        setTeamMembers(sortedMembers);
       } catch (error) {
         console.error('Error fetching team:', error);
         setError('Failed to load team data');
@@ -119,7 +148,7 @@ export const Team = () => {
                       <h3 className="text-lg font-medium text-gray-900">
                         {member.full_name || member.username}
                       </h3>
-                      <p className="text-sm text-gray-500">{member.email || 'No email'}</p>
+                      <p className="text-sm text-gray-500">{member.designation || '-'}</p>
                     </div>
                   </div>
                   <button
@@ -135,30 +164,65 @@ export const Team = () => {
                 </div>
 
                 {expandedMembers.includes(member.id) && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Assigned Projects</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {member.projects.length > 0 ? (
-                        member.projects.map(project => (
-                          <div key={project.id} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-[#1732ca]/10 rounded-lg">
-                                <Briefcase className="w-4 h-4 text-[#1732ca]" />
+                  <div className="mt-6 space-y-6">
+                    {/* Active Projects */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Active Projects</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {member.projects.filter(p => p.status !== 'completed').length > 0 ? (
+                          member.projects
+                            .filter(p => p.status !== 'completed')
+                            .map(project => (
+                              <div key={project.id} className="bg-gray-50 p-4 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-[#1732ca]/10 rounded-lg">
+                                    <Briefcase className="w-4 h-4 text-[#1732ca]" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{project.name}</p>
+                                    <p className="text-sm text-gray-500">
+                                      {project.hours} hours spent
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{project.name}</p>
-                                <p className="text-sm text-gray-500">
-                                  {project.allocated_hours} hours allocated
-                                </p>
-                              </div>
-                            </div>
+                            ))
+                        ) : (
+                          <div className="col-span-2 text-center py-4 text-gray-500">
+                            No active projects assigned
                           </div>
-                        ))
-                      ) : (
-                        <div className="col-span-2 text-center py-4 text-gray-500">
-                          No projects assigned
-                        </div>
-                      )}
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Completed Projects */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Completed Projects</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {member.projects.filter(p => p.status === 'completed').length > 0 ? (
+                          member.projects
+                            .filter(p => p.status === 'completed')
+                            .map(project => (
+                              <div key={project.id} className="bg-gray-50 p-4 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-[#1732ca]/10 rounded-lg">
+                                    <Briefcase className="w-4 h-4 text-[#1732ca]" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{project.name}</p>
+                                    <p className="text-sm text-gray-500">
+                                      {project.hours} hours spent
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        ) : (
+                          <div className="col-span-2 text-center py-4 text-gray-500">
+                            No completed projects
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

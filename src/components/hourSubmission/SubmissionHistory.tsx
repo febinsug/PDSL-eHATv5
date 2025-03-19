@@ -11,6 +11,7 @@ interface SubmissionHistoryProps {
   toggleTimesheet: (id: string) => void;
   onEdit: (timesheet: TimesheetWithProject) => void;
   selectedMonth: Date;
+  onMonthChange: (date: Date) => void;
   showHeader?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
   toggleTimesheet,
   onEdit,
   selectedMonth,
+  onMonthChange,
   showHeader = true
 }) => {
   const filteredTimesheets = timesheets.filter(timesheet => 
@@ -100,8 +102,8 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                     }`}>
                       {timesheet.status === 'approved' && <CheckCircle className="w-3 h-3" />}
                       {timesheet.status === 'rejected' && <XCircle className="w-3 h-3" />}
-                      {timesheet.status === 'pending' && <Clock className="w-3 h-3" />}
-                      {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
+                      {(timesheet.status === 'pending' || timesheet.status === 'submitted') && <Clock className="w-3 h-3" />}
+                      {timesheet.status === 'submitted' ? 'Pending' : timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -123,7 +125,7 @@ export const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({
                           <ChevronDown className="w-4 h-4" />
                         )}
                       </button>
-                      {timesheet.status !== 'approved' && (
+                      {(timesheet.status !== 'approved') && (
                         <button
                           onClick={() => onEdit(timesheet)}
                           className="text-[#1732ca] hover:text-[#1732ca]/80 text-sm font-medium"

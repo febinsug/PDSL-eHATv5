@@ -75,7 +75,7 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
         .select('*')
         .eq('project_id', project.id)
         .lte('year', getYear(currentSelectedMonth))
-        .neq('status', 'rejected')
+        .in('status', ['pending', 'submitted', 'approved'])
     ]);
 
     const users = usersResponse.data?.map(pu => ({
@@ -95,7 +95,7 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
 
       const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
       
-      // Only count approved or pending timesheets
+      // Only count approved, pending, or submitted timesheets
       if (timesheet.status !== 'rejected') {
         // Calculate cumulative hours
         if (timesheet.year < getYear(currentSelectedMonth) || 

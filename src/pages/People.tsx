@@ -99,6 +99,15 @@ export const People = () => {
             }
           });
 
+          // Sort teams alphabetically by full_name or username
+          teamMap.forEach((team, managerId) => {
+            teamMap.set(managerId, team.sort((a, b) => {
+              const nameA = a.full_name || a.username;
+              const nameB = b.full_name || b.username;
+              return nameA.localeCompare(nameB);
+            }));
+          });
+
           const usersWithDetails = usersResponse.data.map(user => ({
             ...user,
             projects: userProjects.get(user.id) || [],
