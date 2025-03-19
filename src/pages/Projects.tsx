@@ -8,6 +8,7 @@ import { ClientForm } from '../components/projects/ClientForm';
 import { ClientList } from '../components/projects/ClientList';
 import { FilterDialog } from '../components/projects/FilterDialog';
 import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
+import { ProjectDetailsModal } from '../components/projects/ProjectDetailsModal';
 import type { Project, User, Client, ProjectStatus } from '../types';
 
 interface ProjectFormData {
@@ -61,6 +62,7 @@ export const Projects = () => {
     message: '',
     action: async () => {},
   });
+  const [selectedProject, setSelectedProject] = useState<(Project & { users?: User[], totalHoursUsed?: number }) | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -442,6 +444,34 @@ export const Projects = () => {
     });
   };
 
+  const handleProjectClick = async (project: Project) => {
+    try {
+      // Fetch users assigned to this project
+      const { data: projectUsers } = await supabase
+        .from('project_users')
+        .select('user:users(*)')
+        .eq('project_id', project.id);
+      
+      // Fetch total hours used for this project
+      const { data: timesheets } = await supabase
+        .from('timesheets')
+        .select('total_hours')
+        .eq('project_id', project.id)
+        .neq('status', 'rejected');
+      
+      const users = projectUsers?.map(pu => pu.user) || [];
+      const totalHoursUsed = timesheets?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
+      
+      setSelectedProject({
+        ...project,
+        users,
+        totalHoursUsed
+      });
+    } catch (error) {
+      console.error('Error fetching project details:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -464,33 +494,33 @@ export const Projects = () => {
   const sortedProjects = sortProjects(filteredProjects);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Project Management</h1>
-        <div className="flex gap-3">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Project Management</h1>
+        <div className="flex flex-col sm:flex-row gap-3">
           {!showForm && !showClientForm && (
             <>
               <button
                 onClick={() => setShowClients(!showClients)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
-                <Building2 className="w-5 h-5" />
+                <Building2 className="w-4 h-4" />
                 {showClients ? 'Show Projects' : 'Show Clients'}
               </button>
               {showClients ? (
                 <button
                   onClick={() => setShowClientForm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4" />
                   New Client
                 </button>
               ) : (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4" />
                   New Project
                 </button>
               )}
@@ -500,8 +530,8 @@ export const Projects = () => {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p>{error}</p>
         </div>
       )}
@@ -570,7 +600,7 @@ export const Projects = () => {
               onEdit={handleEdit}
               onArchive={handleDeleteProject}
               onComplete={handleCompleteProject}
-              onSelect={() => {}}
+              onSelect={handleProjectClick}
               onSort={handleSort}
               sortConfig={sortConfig}
             />
@@ -582,7 +612,7 @@ export const Projects = () => {
                 onEdit={handleEdit}
                 onArchive={handleDeleteProject}
                 onComplete={handleCompleteProject}
-                onSelect={() => {}}
+                onSelect={handleProjectClick}
                 onSort={handleSort}
                 sortConfig={sortConfig}
                 showReactivate={true}
@@ -611,6 +641,13 @@ export const Projects = () => {
         }}
         onCancel={() => setConfirmation(prev => ({ ...prev, show: false }))}
       />
+
+      {selectedProject && (
+        <ProjectDetailsModal
+          project={selectedProject}
+          onClose={() => setSelectedProject(null)}
+        />
+      )}
     </div>
   );
 };

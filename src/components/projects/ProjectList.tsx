@@ -14,6 +14,7 @@ interface ProjectListProps {
   sortConfig: { field: string; direction: 'asc' | 'desc' };
   showReactivate?: boolean;
   onReactivate?: (project: Project) => void;
+  onClick: (project: Project) => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -40,6 +41,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   sortConfig,
   showReactivate = false,
   onReactivate,
+  onClick,
 }) => (
   <div className="bg-white rounded-lg shadow overflow-hidden">
     {title && (
@@ -104,7 +106,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           <tr 
             key={project.id} 
             className="hover:bg-gray-50 cursor-pointer"
-            onClick={() => onSelect(project)}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('button')) return;
+              onSelect(project);
+            }}
           >
             <td className="px-6 py-4 whitespace-nowrap">
               <div className="text-sm font-medium text-gray-900">{project.name}</div>
