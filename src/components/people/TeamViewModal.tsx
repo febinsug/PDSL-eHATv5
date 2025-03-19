@@ -29,7 +29,7 @@ export const TeamViewModal: React.FC<TeamViewModalProps> = ({ manager, onClose }
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">{member.full_name || member.username}</p>
-                  <p className="text-sm text-gray-500">{member.email || 'No email'}</p>
+                  <p className="text-sm text-gray-500">{member.designation || '-'}</p>
                 </div>
               </div>
             </div>
