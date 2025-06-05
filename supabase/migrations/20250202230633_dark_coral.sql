@@ -1,14 +1,21 @@
 /*
-  # Add rejection reason to timesheets
+  # Add month-specific hours tracking to timesheets
 
   1. Changes
-    - Add rejection_reason column to timesheets table
-    - This allows managers/admins to provide a reason when rejecting a timesheet
+    - Add month_hours column to store hours split by month
+    - Add is_split_week column to track weeks that span across months
+    - Add rejection_reason column for rejected timesheets
 */
 
--- Add rejection_reason column to timesheets
+-- Add month_hours column to timesheets
 ALTER TABLE timesheets
+ADD COLUMN month_hours JSONB,
+ADD COLUMN is_split_week BOOLEAN DEFAULT FALSE,
 ADD COLUMN rejection_reason text;
+
+-- Create index for better query performance when filtering by split weeks
+CREATE INDEX idx_timesheets_split_week ON timesheets(is_split_week)
+WHERE is_split_week = true;
 
 -- Create index for better query performance when filtering by rejection reason
 CREATE INDEX idx_timesheets_rejection_reason ON timesheets(rejection_reason)

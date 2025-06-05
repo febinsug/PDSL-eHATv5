@@ -394,6 +394,7 @@ export const Approvals = () => {
           onToggleGroup={toggleGroup}
           onToggleTimesheet={toggleTimesheet}
           onApprove={handleApproval}
+          selectedMonth={selectedMonth}
         />
 
         <ApprovedTimesheets

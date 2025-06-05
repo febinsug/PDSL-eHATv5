@@ -1,28 +1,37 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 import type { Timesheet } from '../../types';
+import { format } from 'date-fns';
 
 interface TimesheetBreakdownProps {
   timesheet: Timesheet;
   expanded: boolean;
+  selectedMonth: Date;
 }
 
-export const TimesheetBreakdown: React.FC<TimesheetBreakdownProps> = ({ timesheet, expanded }) => {
+export const TimesheetBreakdown: React.FC<TimesheetBreakdownProps> = ({ timesheet, expanded, selectedMonth }) => {
   if (!expanded) return null;
 
+  const monthKey = format(selectedMonth, 'yyyy-MM');
+  const monthEntry = timesheet.month_hours?.[monthKey];
+
   const days = [
-    { name: 'Monday', hours: timesheet.monday_hours },
-    { name: 'Tuesday', hours: timesheet.tuesday_hours },
-    { name: 'Wednesday', hours: timesheet.wednesday_hours },
-    { name: 'Thursday', hours: timesheet.thursday_hours },
-    { name: 'Friday', hours: timesheet.friday_hours },
+    { name: 'Monday', hours: monthEntry?.monday_hours ?? 0 },
+    { name: 'Tuesday', hours: monthEntry?.tuesday_hours ?? 0 },
+    { name: 'Wednesday', hours: monthEntry?.wednesday_hours ?? 0 },
+    { name: 'Thursday', hours: monthEntry?.thursday_hours ?? 0 },
+    { name: 'Friday', hours: monthEntry?.friday_hours ?? 0 },
   ];
+
+  const totalMonthHours = days.reduce((sum, day) => sum + (day.hours || 0), 0);
 
   return (
     <div className="overflow-hidden transition-all duration-200">
       <div className="bg-gray-50 py-4">
         <div className="max-w-4xl mx-auto">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Daily Hours Breakdown</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">
+            Daily Hours Breakdown ({totalMonthHours} {totalMonthHours === 1 ? 'hour' : 'hours'})
+          </h4>
           <div className="grid grid-cols-5 gap-4">
             {days.map(day => (
               <div key={day.name} className="bg-white rounded-lg p-4 shadow-sm">

@@ -10,7 +10,8 @@ import { UserHoursList } from '../components/overview/UserHoursList';
 import { ProjectDistribution } from '../components/overview/ProjectDistribution';
 import { ProjectUtilizationDetails } from '../components/overview/ProjectUtilizationModal';
 import { UserHoursModal } from '../components/overview/UserHoursModal';
-import type { Project, UserHours, ProjectUtilizationDetails as ProjectUtilizationDetailsType } from '../types';
+import type { Project, UserHours, ProjectUtilizationDetails as ProjectUtilizationDetailsType, ProjectStatus, ProjectWithUtilization, Timesheet, TimesheetWithDetails } from '../types';
+import { isTimesheetInMonth, getHoursForMonth } from '../utils/timesheet';
 
 const COLORS = {
   blue1: '#1732ca',  // Brand blue (unchanged)
@@ -56,7 +57,7 @@ const PROJECT_COLORS = [
   COLORS.slate3     // Light slate
 ];
 
-const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date) => {
+const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date): Promise<ProjectUtilizationDetailsType | null> => {
   try {
     const [usersResponse, timesheetsResponse] = await Promise.all([
       supabase
@@ -78,7 +79,12 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
         .in('status', ['pending', 'submitted', 'approved'])
     ]);
 
-    const users = usersResponse.data?.map(pu => ({
+    if (usersResponse.error || timesheetsResponse.error) {
+      console.error('Error fetching users or timesheets:', usersResponse.error || timesheetsResponse.error);
+      return null;
+    }
+
+    const users = usersResponse.data?.map((pu: any) => ({
       id: pu.user.id,
       name: pu.user.full_name || pu.user.username,
       designation: pu.user.designation,
@@ -93,20 +99,26 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
       const user = users.find(u => u.id === timesheet.user_id);
       if (!user) return;
 
-      const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
-      
       // Only count approved, pending, or submitted timesheets
       if (timesheet.status !== 'rejected') {
         // Calculate cumulative hours
         if (timesheet.year < getYear(currentSelectedMonth) || 
-            (timesheet.year === getYear(currentSelectedMonth) && weekStart <= endOfMonth(currentSelectedMonth))) {
+            (timesheet.year === getYear(currentSelectedMonth) && 
+             timesheet.week_number <= getWeek(currentSelectedMonth))) {
           user.hours += timesheet.total_hours || 0;
         }
 
-        // Calculate current month hours
-        if (timesheet.year === getYear(currentSelectedMonth) && 
-            isSameMonth(weekStart, currentSelectedMonth)) {
-          user.monthlyHours += timesheet.total_hours || 0;
+        // Calculate current month hours using month_hours
+        const monthKey = format(currentSelectedMonth, 'yyyy-MM');
+        const monthHours = timesheet.month_hours?.[monthKey];
+        if (monthHours) {
+          user.monthlyHours += (
+            monthHours.monday_hours +
+            monthHours.tuesday_hours +
+            monthHours.wednesday_hours +
+            monthHours.thursday_hours +
+            monthHours.friday_hours
+          );
         }
       }
     });
@@ -114,8 +126,9 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
     // Calculate total hours used cumulatively
     const totalHoursUsed = timesheets
       .filter(timesheet => {
-        const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
-        return weekStart <= endOfMonth(currentSelectedMonth);
+        return timesheet.year < getYear(currentSelectedMonth) || 
+               (timesheet.year === getYear(currentSelectedMonth) && 
+                timesheet.week_number <= getWeek(currentSelectedMonth));
       })
       .reduce((sum, ts) => sum + (ts.total_hours || 0), 0);
 
@@ -123,18 +136,12 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
       project: {
         ...project,
         totalHours: totalHoursUsed,
-        utilization: (totalHoursUsed / project.allocated_hours) * 100
+        utilization: project.allocated_hours ? (totalHoursUsed / project.allocated_hours) * 100 : 0
       },
-      users: users.map(user => ({
-        id: user.id,
-        name: user.name,
-        hours: user.hours,
-        monthlyHours: user.monthlyHours,
-        designation: user.designation
-      })),
-      timesheets,
+      users: users,
+      timesheets: timesheets,
       totalHoursUsed,
-      hoursRemaining: project.allocated_hours - totalHoursUsed
+      hoursRemaining: project.allocated_hours ? project.allocated_hours - totalHoursUsed : 0
     };
   } catch (error) {
     console.error('Error fetching project details:', error);
@@ -153,7 +160,7 @@ export const Overview = () => {
     pendingSubmissions: 0,
     approvedSubmissions: 0,
   });
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithUtilization[]>([]);
   const [projectHours, setProjectHours] = useState<{ name: string; hours: number; color: string; }[]>([]);
   const [userHours, setUserHours] = useState<UserHours[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectUtilizationDetailsType | null>(null);
@@ -181,7 +188,6 @@ export const Overview = () => {
             .select('id')
             .eq('manager_id', user.id);
           
-          // Include manager's own ID in the team view
           teamMemberIds = [...(teamMembers?.map(member => member.id) || []), user.id];
         }
 
@@ -200,12 +206,13 @@ export const Overview = () => {
               id, 
               name, 
               allocated_hours, 
-              client:clients(name)
+              client:clients(name),
+              status,
+              completed_at
             )
           `)
           .eq('year', year);
 
-        // Apply filters based on role and view type
         if (user.role === 'user') {
           query = query.eq('user_id', user.id);
         } else if (user.role === 'manager' && viewType === 'team') {
@@ -216,131 +223,58 @@ export const Overview = () => {
 
         if (timesheetsError) throw timesheetsError;
 
-        // Filter timesheets for the selected month and status (not rejected)
+        // Filter timesheets for the selected month (needed for stats, weekly, user hours)
         const monthTimesheets = (timesheetsData || []).filter(timesheet => {
-          // First check status
           if (timesheet.status === 'rejected') return false;
-          
-          // Then check month
-          const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
-          let daysInSelectedMonth = 0;
-          for (let i = 0; i < 7; i++) {
-            const currentDay = addDays(weekStart, i);
-            if (isSameMonth(currentDay, selectedMonth)) {
-              daysInSelectedMonth++;
-            }
-          }
-          return daysInSelectedMonth >= 4;
+          return isTimesheetInMonth(timesheet, selectedMonth);
+        }) as TimesheetWithDetails[];
+
+        // Filter timesheets for cumulative project utilization (up to end of selected month)
+        const cumulativeTimesheets = (timesheetsData || []).filter(timesheet => {
+          if (timesheet.status === 'rejected') return false;
+          const weekStartForCheck = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+          // Ensure the week starts on or before the end of the selected month
+          return weekStartForCheck <= monthEnd; 
+        }) as TimesheetWithDetails[];
+
+        // --- MONTHLY CALCULATIONS ---
+        // Calculate stats based on the selected month's hours
+        const totalHoursForMonth = monthTimesheets.reduce((sum, ts) => sum + getHoursForMonth(ts, selectedMonth), 0);
+        const monthlyActiveProjectsSet = new Set<string>();
+        monthTimesheets.forEach(ts => monthlyActiveProjectsSet.add(ts.project_id));
+        const pendingTimesheets = monthTimesheets.filter(ts => {
+            const monthStatus = ts.month_hours?.[format(selectedMonth, 'yyyy-MM')]?.status;
+            return monthStatus === 'pending' || monthStatus === 'submitted';
         });
-
-        if (monthTimesheets.length === 0) {
-          setStats({
-            totalHours: 0,
-            activeProjects: 0,
-            pendingSubmissions: 0,
-            approvedSubmissions: 0,
-          });
-          setProjects([]);
-          setProjectHours([]);
-          setWeeklyData([]);
-          setLoading(false);
-          return;
-        }
-
-        // Calculate project statistics
-        const projectMap = new Map<string, Project & { totalHours: number; color: string }>();
-
-        // First get all timesheets for active projects (not filtered by month)
-        const { data: allTimesheets } = await supabase
-          .from('timesheets')
-          .select(`
-            *,
-            project:projects!inner(
-              id, 
-              name, 
-              allocated_hours, 
-              client:clients(name)
-            )
-          `)
-          .lte('year', getYear(selectedMonth));
-
-        // Initialize projects with zero hours
-        monthTimesheets.forEach(timesheet => {
-          if (!projectMap.has(timesheet.project.id)) {
-            projectMap.set(timesheet.project.id, {
-              ...timesheet.project,
-              totalHours: 0,
-              color: PROJECT_COLORS[projectMap.size % PROJECT_COLORS.length],
-            });
-          }
+        const approvedTimesheets = monthTimesheets.filter(ts => {
+            const monthStatus = ts.month_hours?.[format(selectedMonth, 'yyyy-MM')]?.status;
+            return monthStatus === 'approved';
         });
-
-        // Calculate cumulative hours for each project
-        allTimesheets?.forEach(timesheet => {
-          if (projectMap.has(timesheet.project.id)) {
-            const weekStart = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
-            if (weekStart <= endOfMonth(selectedMonth)) {
-              const project = projectMap.get(timesheet.project.id)!;
-              project.totalHours += timesheet.total_hours || 0;
-            }
-          }
-        });
-
-        const activeProjects = Array.from(projectMap.values())
-          .map(project => ({
-            ...project,
-            utilization: (project.totalHours / project.allocated_hours) * 100,
-          }))
-          .filter(p => p.totalHours > 0);
-
-        setProjects(activeProjects);
-
-        // Calculate project hours for charts
-        const projectHoursData = activeProjects.map(project => {
-          // For regular users, only calculate their own hours
-          const monthlyHours = monthTimesheets
-            .filter(t => {
-              const weekStart = startOfWeek(new Date(t.year, 0, 1 + (t.week_number - 1) * 7), { weekStartsOn: 1 });
-              return isSameMonth(weekStart, selectedMonth) && t.status !== 'rejected';
-            })
-            .filter(t => user.role === 'user' ? t.user_id === user.id : true)
-            .filter(t => t.project.id === project.id)
-            .reduce((sum, t) => sum + (t.total_hours || 0), 0);
-
-          return {
-            name: project.name,
-            hours: monthlyHours,
-            color: project.color,
-          };
-        }).filter(p => p.hours > 0);
-
-        setProjectHours(projectHoursData);
-
-        // Calculate statistics
-        const totalHours = monthTimesheets.reduce((sum, t) => sum + (t.total_hours || 0), 0);
-        const pendingCount = monthTimesheets.filter(t => t.status === 'pending').length;
-        const approvedCount = monthTimesheets.filter(t => t.status === 'approved').length;
-
         setStats({
-          totalHours,
-          activeProjects: activeProjects.length,
-          pendingSubmissions: pendingCount,
-          approvedSubmissions: approvedCount,
+          totalHours: totalHoursForMonth,
+          activeProjects: monthlyActiveProjectsSet.size, // Show projects active *this month*
+          pendingSubmissions: pendingTimesheets.length,
+          approvedSubmissions: approvedTimesheets.length
         });
 
-        // Calculate weekly data
+        // Calculate MONTHLY weekly data 
         const weeklyChartData = user.role === 'user'
           ? monthTimesheets
               .reduce((acc: any[], timesheet) => {
-                const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
+                const hoursThisMonth = getHoursForMonth(timesheet, selectedMonth);
+                if (hoursThisMonth <= 0) return acc;
+                
+                const weekKey = `Week ${timesheet.week_number}`;
+                const weekIndex = acc.findIndex(w => w.week === weekKey);
+
                 if (weekIndex === -1) {
                   acc.push({
-                    week: `Week ${timesheet.week_number}`,
+                    week: weekKey,
                     weekNum: timesheet.week_number,
-                    hours: timesheet.total_hours || 0,
+                    hours: hoursThisMonth
                   });
                 } else {
-                  acc[weekIndex].hours += timesheet.total_hours || 0;
+                  acc[weekIndex].hours += hoursThisMonth;
                 }
                 return acc;
               }, [])
@@ -348,75 +282,158 @@ export const Overview = () => {
               .map(({ week, hours }) => ({ week, hours }))
           : monthTimesheets
               .reduce((acc: any[], timesheet) => {
-                const weekIndex = acc.findIndex(w => w.week === `Week ${timesheet.week_number}`);
+                // ts is TimesheetWithDetails, ts.project exists
+                const hoursThisMonth = getHoursForMonth(timesheet, selectedMonth);
+                if (hoursThisMonth <= 0 || !timesheet.project) return acc;
+                
+                const weekKey = `Week ${timesheet.week_number}`;
+                const weekIndex = acc.findIndex(w => w.week === weekKey);
+
                 if (weekIndex === -1) {
                   const weekData: any = {
-                    week: `Week ${timesheet.week_number}`,
+                    week: weekKey,
                     weekNum: timesheet.week_number,
                   };
-                  activeProjects.forEach(p => {
-                    weekData[p.name] = timesheet.project.id === p.id ? (timesheet.total_hours || 0) : 0;
+                  monthlyActiveProjectsSet.forEach(p => {
+                    // Use project name as key
+                    if (timesheet.project.id === p) {
+                      weekData[timesheet.project.name] = hoursThisMonth;
+                    } else {
+                      weekData[timesheet.project.name] = 0;
+                    }
                   });
                   acc.push(weekData);
                 } else {
-                  acc[weekIndex][timesheet.project.name] = (acc[weekIndex][timesheet.project.name] || 0) + (timesheet.total_hours || 0);
+                  acc[weekIndex][timesheet.project.name] = (acc[weekIndex][timesheet.project.name] || 0) + hoursThisMonth;
                 }
                 return acc;
               }, [])
               .sort((a, b) => a.weekNum - b.weekNum)
               .map(({ week, weekNum, ...rest }) => ({ week, ...rest }));
 
+        
+
         setWeeklyData(weeklyChartData);
 
-        // Calculate user hours (only for managers/admins)
+        // Calculate MONTHLY user hours 
         if (user.role !== 'user') {
           const userHoursMap = new Map<string, UserHours>();
           monthTimesheets.forEach(timesheet => {
+            // ts is TimesheetWithDetails, ts.user and ts.project exist
+            if (!timesheet.user || !timesheet.project) return;
+            
+            const hoursThisMonth = getHoursForMonth(timesheet, selectedMonth);
+            if (hoursThisMonth <= 0) return;
+
             const userId = timesheet.user.id;
             if (!userHoursMap.has(userId)) {
               userHoursMap.set(userId, {
-                user: timesheet.user,
+                user: timesheet.user, // Use the user object from TimesheetWithDetails
                 totalHours: 0,
                 projectHours: [],
                 weeklyHours: []
               });
             }
+            const userData = userHoursMap.get(userId)!;
+            userData.totalHours += hoursThisMonth;
 
-            const userHourData = userHoursMap.get(userId)!;
-            const hours = timesheet.total_hours || 0;
-
-            userHourData.totalHours += hours;
-
-            const projectIndex = userHourData.projectHours.findIndex(ph => ph.project.id === timesheet.project.id);
+            // Project breakdown
+            const projectIndex = userData.projectHours.findIndex(ph => ph.project.id === timesheet.project_id);
             if (projectIndex === -1) {
-              userHourData.projectHours.push({
-                project: timesheet.project,
-                hours
-              });
+              userData.projectHours.push({ project: timesheet.project, hours: hoursThisMonth });
             } else {
-              userHourData.projectHours[projectIndex].hours += hours;
+              userData.projectHours[projectIndex].hours += hoursThisMonth;
             }
-
-            const weekIndex = userHourData.weeklyHours.findIndex(wh => wh.weekNumber === timesheet.week_number);
+            
+            // Weekly breakdown
+            const weekIndex = userData.weeklyHours.findIndex(wh => wh.weekNumber === timesheet.week_number);
             if (weekIndex === -1) {
-              userHourData.weeklyHours.push({
-                weekNumber: timesheet.week_number,
-                hours
-              });
+              userData.weeklyHours.push({ weekNumber: timesheet.week_number, hours: hoursThisMonth });
             } else {
-              userHourData.weeklyHours[weekIndex].hours += hours;
+              userData.weeklyHours[weekIndex].hours += hoursThisMonth;
             }
           });
-
-          userHoursMap.forEach(userData => {
-            userData.projectHours.sort((a, b) => b.hours - a.hours);
-            userData.weeklyHours.sort((a, b) => a.weekNumber - b.weekNumber);
-          });
-
-          setUserHours(Array.from(userHoursMap.values()));
+          
+          const sortedUserHours = Array.from(userHoursMap.values()).sort((a, b) => b.totalHours - a.totalHours);
+          setUserHours(sortedUserHours);
         } else {
           setUserHours([]);
         }
+        // --- END MONTHLY CALCULATIONS ---
+
+        // --- CUMULATIVE PROJECT CALCULATIONS (For Utilization List & Pie Chart) ---
+        const cumulativeProjectMap = new Map<string, ProjectWithUtilization>();
+        cumulativeTimesheets.forEach(ts => {
+          const project = ts.project;
+          if (!project) return;
+          // Ensure status and completed_at are present
+          const status = project.status || ts.project.status;
+          const completed_at = project.completed_at || ts.project.completed_at;
+          // Use cumulative total_hours here
+          const hoursToAdd = ts.total_hours || 0; 
+          if (hoursToAdd <= 0) return; 
+
+          if (!cumulativeProjectMap.has(project.id)) {
+            cumulativeProjectMap.set(project.id, {
+              ...project,
+              status,
+              completed_at,
+              totalHours: 0, // Initialize cumulative total hours
+              utilization: 0,
+              color: COLORS.blue1 
+            });
+          }
+          const projData = cumulativeProjectMap.get(project.id)!;
+          projData.totalHours += hoursToAdd; // Sum cumulative hours
+        });
+
+        const cumulativeActiveProjects: ProjectWithUtilization[] = Array.from(cumulativeProjectMap.values())
+          .map((project, index) => ({
+            ...project,
+            // Calculate utilization based on cumulative totalHours
+            utilization: project.allocated_hours ? (project.totalHours / project.allocated_hours) * 100 : 0, 
+            color: PROJECT_COLORS[index % PROJECT_COLORS.length]
+          }))
+          .filter(p => p.totalHours > 0);
+
+        // Filter out completed projects for Project Utilization
+        const filteredProjects = cumulativeActiveProjects.filter(project => {
+          if (project.status !== 'completed') return true;
+          if (!project.completed_at) return true;
+          // Only show if completed_at is in or after the selected month
+          const completedDate = new Date(project.completed_at);
+          const monthStart = startOfMonth(selectedMonth);
+          return completedDate >= monthStart;
+        });
+        console.log('Filtered projects for utilization:', filteredProjects.map(p => ({ name: p.name, status: p.status, completed_at: p.completed_at })));
+        setProjects(filteredProjects); // State for utilization list
+
+        // Calculate project hours for PIE CHART based on selected month (not cumulative)
+        const monthlyProjectMap = new Map<string, { name: string; hours: number; color: string }>();
+        monthTimesheets.forEach(ts => {
+          if (!ts.project) return;
+          // Filter out completed projects for the pie chart
+          const status = ts.project && 'status' in ts.project ? ts.project.status : undefined;
+          const completed_at = ts.project && 'completed_at' in ts.project ? ts.project.completed_at : undefined;
+          if (status === 'completed' && completed_at) {
+            const completedDate = new Date(completed_at);
+            const monthStart = startOfMonth(selectedMonth);
+            if (completedDate < monthStart) return;
+          }
+          const hours = getHoursForMonth(ts, selectedMonth);
+          if (hours <= 0) return;
+          if (!monthlyProjectMap.has(ts.project.id)) {
+            monthlyProjectMap.set(ts.project.id, {
+              name: ts.project.name,
+              hours: 0,
+              color: PROJECT_COLORS[monthlyProjectMap.size % PROJECT_COLORS.length]
+            });
+          }
+          monthlyProjectMap.get(ts.project.id)!.hours += hours;
+        });
+        const monthlyProjectHoursChartData = Array.from(monthlyProjectMap.values());
+        setProjectHours(monthlyProjectHoursChartData);
+        // --- END CUMULATIVE PROJECT CALCULATIONS ---
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -541,6 +558,7 @@ export const Overview = () => {
             data={weeklyData}
             isUserView={true}
             colors={[COLORS.blue1]}
+            selectedMonth={selectedMonth}
           />
           <ProjectDistribution data={projectHours} />
         </div>
@@ -551,6 +569,7 @@ export const Overview = () => {
               data={weeklyData}
               projects={projects}
               colors={PROJECT_COLORS}
+              selectedMonth={selectedMonth}
             />
             <ProjectDistribution data={projectHours} />
           </div>

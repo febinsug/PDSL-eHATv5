@@ -8,7 +8,7 @@ import { SubmissionForm } from '../components/hourSubmission/SubmissionForm';
 import { SubmissionHistory } from '../components/hourSubmission/SubmissionHistory';
 import toast from 'react-hot-toast';
 import { TimesheetBreakdown } from "../components/shared/TimesheetBreakdown";
-import { calculateTotalHours } from "../utils/timesheet";
+import { calculateTotalHours, splitTimesheetByMonth } from "../utils/timesheet";
 import type { TimesheetWithDetails } from '../../types';
 
 interface TimesheetWithProject extends Timesheet {
@@ -305,6 +305,17 @@ export const HourSubmission = () => {
             friday_hours: projectHours.friday_hours || 0,
             status: 'pending',
             submitted_at: new Date().toISOString(),
+            month_hours: splitTimesheetByMonth({
+              user_id: user.id,
+              project_id: projectId,
+              week_number: weekNumber,
+              year: year,
+              monday_hours: projectHours.monday_hours || 0,
+              tuesday_hours: projectHours.tuesday_hours || 0,
+              wednesday_hours: projectHours.wednesday_hours || 0,
+              thursday_hours: projectHours.thursday_hours || 0,
+              friday_hours: projectHours.friday_hours || 0
+            })
           };
           
           if (editingTimesheet && editingTimesheet.project_id === projectId) {

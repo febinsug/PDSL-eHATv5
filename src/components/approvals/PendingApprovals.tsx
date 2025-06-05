@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Clock, ChevronUp, ChevronDown, CheckCircle, XCircle, Check, X, ChevronRight } from 'lucide-react';
 import { TimesheetBreakdown } from '../shared/TimesheetBreakdown';
-import { calculateTotalHours } from '../../utils/timesheet';
+import { calculateTotalHours, getHoursForMonth } from '../../utils/timesheet';
 import type { TimesheetWithDetails } from '../../types';
 
 interface GroupedTimesheet {
@@ -24,6 +24,7 @@ interface PendingApprovalsProps {
   onToggleGroup: (groupId: string) => void;
   onToggleTimesheet: (id: string) => void;
   onApprove: (id: string, approved: boolean) => void;
+  selectedMonth: Date;
 }
 
 export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
@@ -34,7 +35,10 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
   onToggleGroup,
   onToggleTimesheet,
   onApprove,
+  selectedMonth,
 }) => {
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
   const groupedTimesheets = useMemo(() => {
     const groups = new Map<string, GroupedTimesheet>();
     
@@ -60,11 +64,22 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
       
       const group = groups.get(groupKey)!;
       group.timesheets.push(timesheet);
-      group.totalHours += calculateTotalHours(timesheet);
+      group.totalHours += getHoursForMonth(timesheet, selectedMonth);
     });
     
     return Array.from(groups.values());
-  }, [timesheets]);
+  }, [timesheets, selectedMonth]);
+
+  const handleApproveAll = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const confirmApproveAll = () => {
+    timesheets.forEach(timesheet => {
+      onApprove(timesheet.id, true);
+    });
+    setShowConfirmDialog(false);
+  };
 
   if (timesheets.length === 0) return null;
 
@@ -77,9 +92,42 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-lg font-semibold text-gray-900">Pending Approvals</h2>
+        <button
+          onClick={handleApproveAll}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+        >
+          <Check className="w-4 h-4" />
+          Approve All
+        </button>
       </div>
+
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Approval</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to approve all {timesheets.length} pending timesheets?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApproveAll}
+                className="px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+              >
+                Approve All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="divide-y divide-gray-200">
         <table className="min-w-full">
           <thead>
@@ -163,7 +211,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-medium text-gray-900">
                               {timesheet.project.name}
-                              <span className="ml-2 text-gray-500">{calculateTotalHours(timesheet)} hours</span>
+                              <span className="ml-2 text-gray-500">{getHoursForMonth(timesheet, selectedMonth)} hours</span>
                             </div>
                             <button
                               onClick={() => onToggleTimesheet(timesheet.id)}
@@ -177,28 +225,11 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({
                             </button>
                           </div>
                           {expandedTimesheets.includes(timesheet.id) && (
-                            <div className="mt-3 grid grid-cols-5 gap-4 text-sm">
-                              <div>
-                                <div className="font-medium text-gray-500">Monday</div>
-                                <div>{timesheet.monday_hours}h</div>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-500">Tuesday</div>
-                                <div>{timesheet.tuesday_hours}h</div>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-500">Wednesday</div>
-                                <div>{timesheet.wednesday_hours}h</div>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-500">Thursday</div>
-                                <div>{timesheet.thursday_hours}h</div>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-500">Friday</div>
-                                <div>{timesheet.friday_hours}h</div>
-                              </div>
-                            </div>
+                            <TimesheetBreakdown
+                              timesheet={timesheet}
+                              expanded={true}
+                              selectedMonth={selectedMonth}
+                            />
                           )}
                         </div>
                       </td>
