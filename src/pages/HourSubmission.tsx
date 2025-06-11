@@ -9,7 +9,7 @@ import { SubmissionHistory } from '../components/hourSubmission/SubmissionHistor
 import toast from 'react-hot-toast';
 import { TimesheetBreakdown } from "../components/shared/TimesheetBreakdown";
 import { calculateTotalHours, splitTimesheetByMonth } from "../utils/timesheet";
-import type { TimesheetWithDetails } from '../../types';
+import type { TimesheetWithDetails } from '../types';
 
 interface TimesheetWithProject extends Timesheet {
   project: Project;
@@ -315,7 +315,7 @@ export const HourSubmission = () => {
               wednesday_hours: projectHours.wednesday_hours || 0,
               thursday_hours: projectHours.thursday_hours || 0,
               friday_hours: projectHours.friday_hours || 0
-            })
+            }, 'pending')
           };
           
           if (editingTimesheet && editingTimesheet.project_id === projectId) {
@@ -609,6 +609,7 @@ export const HourSubmission = () => {
                 toggleTimesheet={toggleTimesheet}
                 onEdit={handleEditTimesheet}
                 selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
                 showHeader={false}
               />
             </div>

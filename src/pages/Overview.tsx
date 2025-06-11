@@ -244,6 +244,7 @@ export const Overview = () => {
         monthTimesheets.forEach(ts => monthlyActiveProjectsSet.add(ts.project_id));
         const pendingTimesheets = monthTimesheets.filter(ts => {
             const monthStatus = ts.month_hours?.[format(selectedMonth, 'yyyy-MM')]?.status;
+           // console.log(`Timesheet ${ts.id}: main_status=${ts.status}, month_hours=${JSON.stringify(ts.month_hours)}, monthStatus_for_selected_month=${monthStatus}`);
             return monthStatus === 'pending' || monthStatus === 'submitted';
         });
         const approvedTimesheets = monthTimesheets.filter(ts => {
@@ -405,7 +406,6 @@ export const Overview = () => {
           const monthStart = startOfMonth(selectedMonth);
           return completedDate >= monthStart;
         });
-        console.log('Filtered projects for utilization:', filteredProjects.map(p => ({ name: p.name, status: p.status, completed_at: p.completed_at })));
         setProjects(filteredProjects); // State for utilization list
 
         // Calculate project hours for PIE CHART based on selected month (not cumulative)

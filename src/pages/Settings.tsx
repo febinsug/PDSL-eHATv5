@@ -126,6 +126,36 @@ export const Settings = () => {
     });
   };
 
+  const handleSendTestEmail = async () => {
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const response = await fetch('http://localhost:3001/send-test-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: 'kdanam@pdsl.com',
+          subject: 'eHAT SMTP TestinG',
+          text: 'Hi Karthik',
+        }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Test email sent successfully!' });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: `Failed to send test email: ${errorData.message || response.statusText}` });
+      }
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      setMessage({ type: 'error', text: 'Network error or backend not running.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600">
@@ -251,28 +281,48 @@ export const Settings = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90 focus:outline-none focus:ring-2 focus:ring-[#1732ca] focus:ring-offset-2 disabled:opacity-50"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Update Password
+                Change Password
               </button>
             </div>
           </form>
         </div>
+
+        {/* Email Test Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <SettingsIcon className="w-5 h-5 text-gray-400" />
+            <h2 className="text-lg font-semibold">Email Test</h2>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">Click the button below to send a test email to kdanam@pdsl.com.</p>
+          <div className="flex justify-end">
+            <button
+              onClick={handleSendTestEmail}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Send Test Email
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Confirmation Dialog */}
       {confirmation.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">{confirmation.title}</h3>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-auto">
+            <h3 className="text-lg font-semibold mb-4">{confirmation.title}</h3>
             <p className="text-gray-600 mb-6">{confirmation.message}</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmation(prev => ({ ...prev, show: false }))}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  await confirmation.action();
+                onClick={() => {
+                  confirmation.action();
                   setConfirmation(prev => ({ ...prev, show: false }));
                 }}
                 className="px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"

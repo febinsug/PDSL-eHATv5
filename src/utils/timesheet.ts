@@ -62,7 +62,7 @@ export const filterTimesheets = (timesheets: any[], filterOptions: any) => {
  * Calculates the structure for the month_hours field based on a timesheet's daily hours.
  * Initializes status to 'draft'.
  */
-export const splitTimesheetByMonth = (timesheet: Omit<Timesheet, 'id' | 'status' | 'submitted_at' | 'month_hours' | 'is_split_week' | 'total_hours'>): Record<string, MonthEntry> => {
+export const splitTimesheetByMonth = (timesheet: Omit<Timesheet, 'id' | 'status' | 'submitted_at' | 'month_hours' | 'is_split_week' | 'total_hours'>, mainStatus: Timesheet['status']): Record<string, MonthEntry> => {
   const weekStart = startOfWeek(
     new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7),
     { weekStartsOn: 1 }
@@ -91,7 +91,7 @@ export const splitTimesheetByMonth = (timesheet: Omit<Timesheet, 'id' | 'status'
         wednesday_hours: 0,
         thursday_hours: 0,
         friday_hours: 0,
-        status: 'draft', // Default status
+        status: mainStatus, // Use the provided status
         approved_by: null,
         approved_at: null,
         rejection_reason: null,
