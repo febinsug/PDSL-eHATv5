@@ -18,7 +18,7 @@ interface ApprovedTimesheetsProps {
   onShowFilter: () => void;
   onDownload: () => void;
   onRevertStatus: (timesheet: TimesheetWithDetails) => void;
-  selectedMonth: string;
+  selectedMonth: Date;
 }
 
 export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
@@ -166,7 +166,7 @@ export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {/* {timesheet.approver ? (timesheet.approver.full_name || timesheet.approver.username) : '-'} */}
+                      {timesheet.approver ? (timesheet.approver.full_name || timesheet.approver.username) : '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -204,7 +204,7 @@ export const ApprovedTimesheets: React.FC<ApprovedTimesheetsProps> = ({
                       <TimesheetBreakdown
                         timesheet={timesheet}
                         expanded={true}
-                        selectedMonth={new Date(selectedMonth)}
+                        selectedMonth={selectedMonth}
                       />
                     </td>
                   </tr>

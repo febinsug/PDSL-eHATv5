@@ -12,6 +12,11 @@ interface TimesheetBreakdownProps {
 export const TimesheetBreakdown: React.FC<TimesheetBreakdownProps> = ({ timesheet, expanded, selectedMonth }) => {
   if (!expanded) return null;
 
+  if (!selectedMonth || isNaN(selectedMonth.getTime())) {
+    console.error("TimesheetBreakdown: Invalid selectedMonth value", selectedMonth);
+    return null;
+  }
+
   const monthKey = format(selectedMonth, 'yyyy-MM');
   const monthEntry = timesheet.month_hours?.[monthKey];
 

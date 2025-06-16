@@ -178,30 +178,50 @@ export const Approvals = () => {
     setErrors(prev => prev.filter(e => e.timesheetId !== timesheetId));
 
     try {
+      const timesheetToUpdate = managerTimesheets.find(t => t.id === timesheetId);
+
+      if (!timesheetToUpdate) {
+        console.error('Timesheet not found for approval:', timesheetId);
+        setProcessing(prev => ({ ...prev, [timesheetId]: false }));
+        return;
+      }
+
+      const monthKey = format(selectedMonth, 'yyyy-MM');
+      const updatedMonthEntry = {
+        ...(timesheetToUpdate.month_hours?.[monthKey] || {}),
+        status: 'approved',
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
+      };
+      const updatedMonthHours = {
+        ...(timesheetToUpdate.month_hours || {}),
+        [monthKey]: updatedMonthEntry,
+      };
+
       const { error } = await supabase
         .from('timesheets')
         .update({
           status: 'approved',
           approved_by: user.id,
-          approved_at: new Date().toISOString()
+          approved_at: new Date().toISOString(),
+          month_hours: updatedMonthHours,
         })
         .eq('id', timesheetId);
 
       if (error) throw error;
 
-      const approvedTimesheet = managerTimesheets.find(t => t.id === timesheetId);
-      if (approvedTimesheet && isTimesheetInMonth(approvedTimesheet, selectedMonth)) {
-        setManagerTimesheets(prev => prev.filter(t => t.id !== timesheetId));
-        setApprovedTimesheets(prev => [{
-          ...approvedTimesheet,
-          status: 'approved',
-          approver: user,
-          approved_at: new Date().toISOString()
-        } as TimesheetWithDetails, ...prev]);
-      } else {
-        // If the timesheet doesn't belong in the current month view,
-        // just remove it from pending
-        setManagerTimesheets(prev => prev.filter(t => t.id !== timesheetId));
+      setManagerTimesheets(prev => prev.filter(t => t.id !== timesheetId));
+
+      const updatedLocalTimesheet = {
+        ...timesheetToUpdate,
+        status: 'approved',
+        approver: user,
+        approved_at: new Date().toISOString(),
+        month_hours: updatedMonthHours,
+      } as TimesheetWithDetails;
+
+      if (isTimesheetInMonth(updatedLocalTimesheet, selectedMonth)) {
+        setApprovedTimesheets(prev => [updatedLocalTimesheet, ...prev]);
       }
     } catch (error) {
       console.error('Error approving timesheet:', error);
@@ -221,13 +241,34 @@ export const Approvals = () => {
     setErrors(prev => prev.filter(e => e.timesheetId !== rejectionDialog.timesheetId));
 
     try {
+      const timesheetToUpdate = managerTimesheets.find(t => t.id === rejectionDialog.timesheetId);
+
+      if (!timesheetToUpdate) {
+        console.error('Timesheet not found for rejection:', rejectionDialog.timesheetId);
+        setProcessing(prev => ({ ...prev, [rejectionDialog.timesheetId]: false }));
+        return;
+      }
+
+      const monthKey = format(selectedMonth, 'yyyy-MM');
+      const updatedMonthHours = {
+        ...(timesheetToUpdate.month_hours || {}),
+        [monthKey]: {
+          ...(timesheetToUpdate.month_hours?.[monthKey] || {}),
+          status: 'rejected',
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+          rejection_reason: rejectionDialog.reason,
+        },
+      };
+
       const { error } = await supabase
         .from('timesheets')
         .update({
           status: 'rejected',
           rejection_reason: rejectionDialog.reason,
           approved_by: user.id,
-          approved_at: new Date().toISOString()
+          approved_at: new Date().toISOString(),
+          month_hours: updatedMonthHours,
         })
         .eq('id', rejectionDialog.timesheetId);
 
@@ -253,13 +294,27 @@ export const Approvals = () => {
       message: `Are you sure you want to change the status of this timesheet back to pending? This will remove the approval and require the timesheet to be approved again.`,
       action: async () => {
         try {
+          const timesheetToUpdate = timesheet;
+          const monthKey = format(selectedMonth, 'yyyy-MM');
+          const updatedMonthHours = {
+            ...(timesheetToUpdate.month_hours || {}),
+            [monthKey]: {
+              ...(timesheetToUpdate.month_hours?.[monthKey] || {}),
+              status: 'pending',
+              approved_by: null,
+              approved_at: null,
+              rejection_reason: null,
+            },
+          };
+
           const { error } = await supabase
             .from('timesheets')
             .update({
               status: 'pending',
               approved_by: null,
               approved_at: null,
-              rejection_reason: null
+              rejection_reason: null,
+              month_hours: updatedMonthHours,
             })
             .eq('id', timesheet.id);
 
@@ -270,7 +325,7 @@ export const Approvals = () => {
             setManagerTimesheets(prev => [...prev, {
               ...timesheet,
               status: 'pending',
-              approver: null,
+              approver: undefined,
               approved_at: null,
               rejection_reason: null
             }]);
@@ -421,6 +476,7 @@ export const Approvals = () => {
           onShowFilter={() => setShowFilterDialog(true)}
           onDownload={downloadSelectedTimesheets}
           onRevertStatus={handleRevertStatus}
+          selectedMonth={selectedMonth}
         />
       </div>
 

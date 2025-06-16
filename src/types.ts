@@ -46,6 +46,7 @@ export interface Timesheet {
 export interface TimesheetWithDetails extends Timesheet {
   user: User;
   project: Project;
+  approver?: User;
 }
 
 export interface TimesheetWithProject extends Timesheet {
@@ -80,4 +81,6 @@ export interface ProjectUtilizationDetails {
   timesheets: Timesheet[];
   totalHoursUsed: number;
   hoursRemaining: number;
-} 
+}
+
+export type { User }; 
