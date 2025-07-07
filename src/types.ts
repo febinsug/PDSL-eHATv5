@@ -83,4 +83,10 @@ export interface ProjectUtilizationDetails {
   hoursRemaining: number;
 }
 
+export interface ProjectDistributionData {
+  name: string;
+  hours: number;
+  color: string;
+}
+
 export type { User }; 

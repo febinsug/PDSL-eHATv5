@@ -99,15 +99,30 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
       const user = users.find(u => u.id === timesheet.user_id);
       if (!user) return;
 
-      // Only count approved, pending, or submitted timesheets
       if (timesheet.status !== 'rejected') {
-        // Calculate cumulative hours
-        if (timesheet.year < getYear(currentSelectedMonth) || 
-            (timesheet.year === getYear(currentSelectedMonth) && 
-             timesheet.week_number <= getWeek(currentSelectedMonth))) {
-          user.hours += timesheet.total_hours || 0;
+        const selectedYear = getYear(currentSelectedMonth);
+        const selectedMonth = currentSelectedMonth.getMonth();
+        // Cumulative hours: sum all month_hours up to and including the selected month
+        if (timesheet.month_hours) {
+          Object.entries(timesheet.month_hours).forEach(([key, monthEntry]) => {
+            const entry = monthEntry as any; // or as MonthEntry if imported
+            // key is 'YYYY-MM'
+            const [yearStr, monthStr] = key.split('-');
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10) - 1; // JS months are 0-based
+            if (
+              year < selectedYear ||
+              (year === selectedYear && month <= selectedMonth)
+            ) {
+              user.hours +=
+                (entry.monday_hours || 0) +
+                (entry.tuesday_hours || 0) +
+                (entry.wednesday_hours || 0) +
+                (entry.thursday_hours || 0) +
+                (entry.friday_hours || 0);
+            }
+          });
         }
-
         // Calculate current month hours using month_hours
         const monthKey = format(currentSelectedMonth, 'yyyy-MM');
         const monthHours = timesheet.month_hours?.[monthKey];
@@ -123,14 +138,31 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
       }
     });
 
-    // Calculate total hours used cumulatively
-    const totalHoursUsed = timesheets
-      .filter(timesheet => {
-        return timesheet.year < getYear(currentSelectedMonth) || 
-               (timesheet.year === getYear(currentSelectedMonth) && 
-                timesheet.week_number <= getWeek(currentSelectedMonth));
-      })
-      .reduce((sum, ts) => sum + (ts.total_hours || 0), 0);
+    // Calculate total hours used cumulatively (up to and including the selected month)
+    let totalHoursUsed = 0;
+    timesheets.forEach(timesheet => {
+      if (timesheet.status !== 'rejected' && timesheet.month_hours) {
+        const selectedYear = getYear(currentSelectedMonth);
+        const selectedMonth = currentSelectedMonth.getMonth();
+        Object.entries(timesheet.month_hours).forEach(([key, monthEntry]) => {
+          const entry = monthEntry as any; // or as MonthEntry if imported
+          const [yearStr, monthStr] = key.split('-');
+          const year = parseInt(yearStr, 10);
+          const month = parseInt(monthStr, 10) - 1;
+          if (
+            year < selectedYear ||
+            (year === selectedYear && month <= selectedMonth)
+          ) {
+            totalHoursUsed +=
+              (entry.monday_hours || 0) +
+              (entry.tuesday_hours || 0) +
+              (entry.wednesday_hours || 0) +
+              (entry.thursday_hours || 0) +
+              (entry.friday_hours || 0);
+          }
+        });
+      }
+    });
 
     return {
       project: {
