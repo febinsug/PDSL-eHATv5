@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://omzrvobipzawytgnfyhi.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tenJ2b2JpcHphd3l0Z25meWhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODI5MDI1NCwiZXhwIjoyMDUzODY2MjU0fQ.yoqfMfVcamWmMvcGXOBR-IjBWojFiBHu1rjwsoKGMu4'; // Use a secure key for admin access
+const supabaseKey = ''; // Use a secure key for admin access
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const JUNE_KEY = '2025-07';
