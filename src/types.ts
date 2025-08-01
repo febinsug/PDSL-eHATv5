@@ -64,6 +64,7 @@ export interface UserHours {
     weekNumber: number;
     hours: number;
   }[];
+  timesheets: TimesheetWithDetails[];
 }
 
 export interface ProjectUtilizationDetails {

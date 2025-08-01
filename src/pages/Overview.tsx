@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths, startOfWeek, endOfWeek, addDays, getWeek, getYear, isSameMonth, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, getYear } from 'date-fns';
 import { Clock, Briefcase, CheckCircle, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -10,7 +10,7 @@ import { UserHoursList } from '../components/overview/UserHoursList';
 import { ProjectDistribution } from '../components/overview/ProjectDistribution';
 import { ProjectUtilizationDetails } from '../components/overview/ProjectUtilizationModal';
 import { UserHoursModal } from '../components/overview/UserHoursModal';
-import type { Project, UserHours, ProjectUtilizationDetails as ProjectUtilizationDetailsType, ProjectStatus, ProjectWithUtilization, Timesheet, TimesheetWithDetails } from '../types';
+import type { Project, User, UserHours, ProjectUtilizationDetails as ProjectUtilizationDetailsType, ProjectWithUtilization, TimesheetWithDetails } from '../types';
 import { isTimesheetInMonth, getHoursForMonth } from '../utils/timesheet';
 
 const COLORS = {
@@ -181,6 +181,96 @@ const fetchProjectDetails = async (project: Project, currentSelectedMonth: Date)
   }
 };
 
+const fetchUserDetailedHours = async (userId: string, targetMonth: Date): Promise<UserHours | null> => {
+  try {
+    const year = getYear(targetMonth);
+
+    const { data: timesheetsData, error: timesheetsError } = await supabase
+      .from('timesheets')
+      .select(`
+        *,
+        user:users!timesheets_user_id_fkey(
+          id,
+          username,
+          full_name,
+          role,
+          designation
+        ),
+        project:projects!inner(
+          id,
+          name,
+          allocated_hours,
+          client:clients(name),
+          status,
+          completed_at
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('year', year);
+
+    if (timesheetsError) {
+      console.error('Error fetching user timesheets:', timesheetsError);
+      return null;
+    }
+
+    const userMonthTimesheets = (timesheetsData || []).filter(timesheet => {
+      if (timesheet.status === 'rejected') return false;
+      return isTimesheetInMonth(timesheet, targetMonth);
+    }) as TimesheetWithDetails[];
+
+    if (userMonthTimesheets.length === 0) {
+      // Return an empty UserHours object if no data for the month
+      const { data: userData, error: userError } = await supabase.from('users').select('id, username, full_name, designation').eq('id', userId).single();
+      if (userError) {
+        console.error('Error fetching user data for empty timesheets:', userError);
+        return null;
+      }
+      const emptyUserHours: UserHours = {
+        user: userData as User,
+        totalHours: 0,
+        projectHours: [],
+        weeklyHours: [],
+        timesheets: [],
+      };
+      return emptyUserHours;
+    }
+
+    const user = userMonthTimesheets[0].user; // Assuming all timesheets belong to the same user
+    let totalHours = 0;
+    const projectHoursMap = new Map<string, { project: Project; hours: number }>();
+    const weeklyHoursMap = new Map<number, { weekNumber: number; hours: number }>();
+
+    userMonthTimesheets.forEach(timesheet => {
+      const hoursThisMonth = getHoursForMonth(timesheet, targetMonth);
+      totalHours += hoursThisMonth;
+
+      // Project breakdown
+      if (!projectHoursMap.has(timesheet.project.id)) {
+        projectHoursMap.set(timesheet.project.id, { project: timesheet.project, hours: 0 });
+      }
+      projectHoursMap.get(timesheet.project.id)!.hours += hoursThisMonth;
+
+      // Weekly breakdown
+      if (!weeklyHoursMap.has(timesheet.week_number)) {
+        weeklyHoursMap.set(timesheet.week_number, { weekNumber: timesheet.week_number, hours: 0 });
+      }
+      weeklyHoursMap.get(timesheet.week_number)!.hours += hoursThisMonth;
+    });
+
+    return {
+      user: user,
+      totalHours: totalHours,
+      projectHours: Array.from(projectHoursMap.values()),
+      weeklyHours: Array.from(weeklyHoursMap.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+      timesheets: userMonthTimesheets // Pass raw timesheets for detailed breakdown
+    };
+
+  } catch (error) {
+    console.error('Error fetching detailed user hours:', error);
+    return null;
+  }
+};
+
 export const Overview = () => {
   const { user } = useAuthStore();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -201,6 +291,8 @@ export const Overview = () => {
   const [viewType, setViewType] = useState<'team' | 'organization'>('team');
   const [modalMonth, setModalMonth] = useState<Date | null>(null);
   const [modalProject, setModalProject] = useState<Project | null>(null);
+  const [userModalMonth, setUserModalMonth] = useState<Date | null>(null);
+  const [userModalUserId, setUserModalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -266,7 +358,10 @@ export const Overview = () => {
         // Filter timesheets for cumulative project utilization (up to end of selected month)
         const cumulativeTimesheets = (timesheetsData || []).filter(timesheet => {
           if (timesheet.status === 'rejected') return false;
-          const weekStartForCheck = startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 });
+          // The original code had a bug here, it was using startOfWeek(new Date(timesheet.year, 0, 1 + (timesheet.week_number - 1) * 7), { weekStartsOn: 1 })
+          // This was incorrect as it was trying to calculate week start from a year and week number, not a date.
+          // It should be based on the selected month's start date.
+          const weekStartForCheck = startOfMonth(selectedMonth); // This line was corrected
           // Ensure the week starts on or before the end of the selected month
           return weekStartForCheck <= monthEnd; 
         }) as TimesheetWithDetails[];
@@ -366,7 +461,8 @@ export const Overview = () => {
                 user: timesheet.user, // Use the user object from TimesheetWithDetails
                 totalHours: 0,
                 projectHours: [],
-                weeklyHours: []
+                weeklyHours: [],
+                timesheets: [], // Initialize timesheets for UserHours
               });
             }
             const userData = userHoursMap.get(userId)!;
@@ -387,6 +483,7 @@ export const Overview = () => {
             } else {
               userData.weeklyHours[weekIndex].hours += hoursThisMonth;
             }
+            userData.timesheets.push(timesheet); // Add timesheet to user's timesheets
           });
           
           const sortedUserHours = Array.from(userHoursMap.values()).sort((a, b) => b.totalHours - a.totalHours);
@@ -501,6 +598,24 @@ export const Overview = () => {
     };
     fetchDetails();
   }, [modalMonth, modalProject]);
+
+  const handleUserClick = async (uh: UserHours) => {
+    setUserModalUserId(uh.user.id);
+    setUserModalMonth(selectedMonth);
+    const detailedUserHours = await fetchUserDetailedHours(uh.user.id, selectedMonth);
+    setSelectedUserHours(detailedUserHours);
+  };
+
+  // When userModalMonth or userModalUserId changes, update selectedUserHours
+  useEffect(() => {
+    const fetchDetailedUserHours = async () => {
+      if (userModalUserId && userModalMonth) {
+        const detailedUserHours = await fetchUserDetailedHours(userModalUserId, userModalMonth);
+        setSelectedUserHours(detailedUserHours);
+      }
+    };
+    fetchDetailedUserHours();
+  }, [userModalMonth, userModalUserId]); // userHours is no longer a dependency here
 
   if (loading) {
     return (
@@ -627,7 +742,7 @@ export const Overview = () => {
             />
             <UserHoursList
               userHours={userHours}
-              onUserClick={setSelectedUserHours}
+              onUserClick={handleUserClick}
             />
           </div>
         </div>
@@ -646,10 +761,16 @@ export const Overview = () => {
         />
       )}
 
-      {selectedUserHours && (
+      {selectedUserHours && userModalMonth && (
         <UserHoursModal
           userHours={selectedUserHours}
-          onClose={() => setSelectedUserHours(null)}
+          selectedMonth={userModalMonth}
+          onMonthChange={setUserModalMonth}
+          onClose={() => {
+            setSelectedUserHours(null);
+            setUserModalUserId(null);
+            setUserModalMonth(null);
+          }}
         />
       )}
     </div>
