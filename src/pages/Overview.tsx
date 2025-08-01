@@ -199,6 +199,8 @@ export const Overview = () => {
   const [selectedUserHours, setSelectedUserHours] = useState<UserHours | null>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [viewType, setViewType] = useState<'team' | 'organization'>('team');
+  const [modalMonth, setModalMonth] = useState<Date | null>(null);
+  const [modalProject, setModalProject] = useState<Project | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -480,12 +482,25 @@ export const Overview = () => {
 
   const handleProjectClick = async (project: Project) => {
     try {
+      setModalProject(project);
+      setModalMonth(selectedMonth); // initialize modal month to current overview month
       const details = await fetchProjectDetails(project, selectedMonth);
       setSelectedProject(details);
     } catch (error) {
       setError('Failed to load project details');
     }
   };
+
+  // When modalMonth or modalProject changes, refetch project details
+  useEffect(() => {
+    const fetchDetails = async () => {
+      if (modalProject && modalMonth) {
+        const details = await fetchProjectDetails(modalProject, modalMonth);
+        setSelectedProject(details);
+      }
+    };
+    fetchDetails();
+  }, [modalMonth, modalProject]);
 
   if (loading) {
     return (
@@ -618,10 +633,16 @@ export const Overview = () => {
         </div>
       )}
 
-      {selectedProject && (
+      {selectedProject && modalMonth && (
         <ProjectUtilizationDetails
           details={selectedProject}
-          onClose={() => setSelectedProject(null)}
+          selectedMonth={modalMonth}
+          onMonthChange={setModalMonth}
+          onClose={() => {
+            setSelectedProject(null);
+            setModalProject(null);
+            setModalMonth(null);
+          }}
         />
       )}
 
