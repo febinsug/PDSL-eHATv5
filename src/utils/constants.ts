@@ -1,4 +1,4 @@
-const COLORS = {
+export const COLORS = {
   blue1: '#1732ca',  // Brand blue (unchanged)
   blue2: '#3a5be0',  // Slightly lighter royal blue
   blue3: '#7ab5ff',  // Sky blue (more distinct from blue2)

@@ -56,8 +56,9 @@ export const People = () => {
     show: false,
     title: '',
     message: '',
-    action: async () => {},
+    action: async () => { },
   });
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -326,8 +327,8 @@ export const People = () => {
           department_id: data.assigned_users.includes(user.id)
             ? editingDepartment.id
             : user.department_id === editingDepartment.id
-            ? null
-            : user.department_id
+              ? null
+              : user.department_id
         }))
       );
 
@@ -803,6 +804,8 @@ export const People = () => {
         }}
         onCancel={() => setConfirmation(prev => ({ ...prev, show: false }))}
       />
+
+
     </div>
   );
 };

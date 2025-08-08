@@ -66,9 +66,10 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
   useEffect(() => {
 
-
+    console.log(project, "project")
     fetchUserHours({});
   }, [project.id, project.users]);
+
   const fetchUserHours = async (filter: any) => {
     try {
       if (!project.users || project.users.length === 0) {
@@ -136,13 +137,25 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           }
         )
       })
-      pieData.push(
-        {
-          name: "Pending",
-          hours: project.allocated_hours - (project?.totalHoursUsed || 0),
-          color: PROJECT_COLORS[pieData.length]
-        }
-      )
+      if (project.users && project.users.length && project.users.length == 1) {
+        // pie data when popup open for only one user, as project detail for a user
+        pieData.push(
+          {
+            name: "",
+            hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+            color: PROJECT_COLORS[pieData.length]
+          }
+        )
+      } else {
+        pieData.push(
+          {
+            name: "Pending",
+            hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+            color: PROJECT_COLORS[pieData.length]
+          }
+        )
+      }
+
       setPieChartData(pieData)
       setUsersWithHours(enhancedUsers);
     } catch (error) {
@@ -223,7 +236,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
         {/* Header - Fixed */}
         <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10 rounded-t-xl">
-          <h2 className="text-xl font-semibold text-gray-900">{project.name}</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{project && project.users && project.users.length && project.users.length == 1 ? (project.users[0].full_name + " - ") : ""}{project.name}</h2>
           <div className="flex items-center gap-2 min-w-[220px] justify-end">
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -315,48 +328,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                 </div>
               )}
 
-              {/* Team Members */}
-              {/* <h3 className="text-sm font-medium text-gray-500 mb-4">TEAM MEMBERS</h3>
-          <div className="space-y-3">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
-              </div>
-            ) : usersWithHours.length > 0 ? (
-              usersWithHours.map(user => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:shadow-sm transition-all duration-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shrink-0 shadow-sm">
-                      <span className="text-blue-700 font-medium">
-                        {(user.full_name || user.username).charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{user.full_name || user.username}</p>
-                      {user.designation && (
-                        <p className="text-xs text-gray-500">{user.designation}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">{user.hoursUsed}h</p>
-                    <p className="text-xs text-gray-500">
-                      {((user.hoursUsed / project.allocated_hours) * 100).toFixed(1)}% of total
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <User className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                <p>No team members assigned</p>
-              </div>
-            )}
-          </div> */}
-
 
               {/* Team Members By Sachin*/}
               <h3 className="text-sm font-medium text-gray-500 mb-4">TEAM MEMBERS</h3>
@@ -421,6 +392,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium text-gray-900">Week {week.week_number}</span>
+                                    <span className="font-medium text-gray-500">{week.year}</span>
                                     <span className="text-xs text-gray-500">(
                                       {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d')}
                                       )</span>
@@ -437,7 +409,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                                           <div key={k.day} className="bg-white rounded p-2 flex flex-col items-center">
                                             <span className="text-xs text-gray-500">{k.day}</span>
                                             <span className="font-medium text-gray-900">{week[k.key]}h</span>
-                                            <span className="text-[10px] text-gray-400 mt-0.5">{ordinal(date.getDate())} {format(date.getDate(), 'MMM')}</span>
+                                            <span className="text-[10px] text-gray-400 mt-0.5">{ordinal(date.getDate())} {format(date.getDate(), 'MMM')} {week.year}</span>
                                           </div>
                                         );
                                       })}
