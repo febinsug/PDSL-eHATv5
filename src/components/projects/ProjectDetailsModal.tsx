@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Loader2 } from 'lucide-react';
+import { X, } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Project, User as UserType } from '../../types';
-import { format, subMonths, addMonths, startOfWeek, addDays, endOfWeek } from 'date-fns';
-import { WeeklyChart } from '../overview/WeeklyChart';
+import { format, subMonths, addMonths, startOfWeek, addDays } from 'date-fns';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
-import { el } from 'date-fns/locale';
 import DateRangeSelector from '../shared/DateRangeSelector';
+import { getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
 
 interface ProjectDetailsModalProps {
   project: Project & {
@@ -35,7 +34,9 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const [monthlyHourUsed, setMonthlyHourUsed] = useState(0);
   const [fetchDataType, setFetchDataType] = useState('all'); // 'all' / 'monthly' / 'custom'
   const [pieChartData, setPieChartData] = useState([])
+  const [customDate, setCustomDate] = useState({ start: new Date(), end: new Date() });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const weekArr = [
     {
       id: 0,
@@ -102,9 +103,39 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         query = query.eq('year', filter.year);
       }
 
-      const { data: timesheetData } = await query;
-      // Calculate total hours per user
+      if (filter.dateRangeWeek && filter.dateRangeWeek.length > 0) {
+        const orConditions = filter.dateRangeWeek.map((r: any) =>
+          `and(year.eq.${r.year},week_number.gte.${r.startWeek},week_number.lte.${r.endWeek})`
+        );
 
+        query = query.or(`(${orConditions.join(',')})`);
+      }
+
+
+      const { data: timesheetDataFromDB } = await query;
+      // Calculate total hours per user
+      let timesheetData = timesheetDataFromDB
+      console.log(timesheetData, 'timesheetData')
+      if (fetchDataType === 'monthly' && filter.year && filter.yearMonth) {
+        const newTimeSheet: any = []
+        timesheetDataFromDB?.map((tim: any) => {
+          const timData = { ...tim }
+          console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
+          if (tim.month_hours && tim.month_hours[filter.yearMonth]) {
+            timData.total_hours = tim.month_hours[filter.yearMonth].monday_hours + tim.month_hours[filter.yearMonth].tuesday_hours + tim.month_hours[filter.yearMonth].wednesday_hours + tim.month_hours[filter.yearMonth].thursday_hours + tim.month_hours[filter.yearMonth].friday_hours
+            timData.monday_hours = tim.month_hours[filter.yearMonth].monday_hours
+            timData.tuesday_hours = tim.month_hours[filter.yearMonth].tuesday_hours
+            timData.wednesday_hours = tim.month_hours[filter.yearMonth].wednesday_hours
+            timData.thursday_hours = tim.month_hours[filter.yearMonth].thursday_hours
+            timData.friday_hours = tim.month_hours[filter.yearMonth].friday_hours
+            timData.month_hours = { [filter.yearMonth]: tim.month_hours[filter.yearMonth] }
+            newTimeSheet.push(timData)
+          }
+          // console.log(timData, 'timData')
+        })
+        // console.log(newTimeSheet, 'newTimeSheet')
+        timesheetData = newTimeSheet
+      }
 
       let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
       setMonthlyHourUsed(monthly_hour_used)
@@ -213,36 +244,42 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0); // last date of the month
-
-    const getWeekNumber = (d: Date) => {
-      const firstJan = new Date(d.getFullYear(), 0, 1);
-      const days = Math.floor((d.getTime() - firstJan.getTime()) / (24 * 60 * 60 * 1000));
-      return Math.ceil((days + firstJan.getDay() + 1) / 7);
-    };
-
     return {
       startWeek: getWeekNumber(firstDayOfMonth),
       endWeek: getWeekNumber(lastDayOfMonth),
-      year: date.getFullYear()
+      year: date.getFullYear(),
+      yearMonth: year + "-" + format(date, "MM")
     };
   }
   const showAllClick = (val: string) => {
     setFetchDataType(val)
-    if (val === 'all') {
+    if (val !== 'custom') {
+      setCustomDate({ start: new Date(), end: new Date() });
+    }
+    setRefresh((r) => r + 1);  // increment to trigger effect
+  }
+  useEffect(() => {
+    if (fetchDataType === 'all') {
       fetchUserHours({});
-    } else if (val === 'monthly') {
+    } else if (fetchDataType === 'monthly') {
       onMonthChange(new Date())
-    } else if (val === 'custom') {
+    } else if (fetchDataType === 'custom') {
       // const { startWeek, endWeek, year } = getStartAndEndWeekNumbers(selectedMonth);
       // fetchUserHours({ startWeek, endWeek, year });
       setShowDatePicker(true)
     }
-  }
-  const handleDateRange = (start: string, end: string) => {
+  }, [fetchDataType, refresh]);
+  const handleDateRange = (start: any, end: any) => {
+    setShowDatePicker(false)
+    setCustomDate({ start: start, end: end })
     console.log("Selected Start Date:", start);
     console.log("Selected End Date:", end);
+    console.log("getWeekDateRangeBetweenTwoDates", JSON.stringify(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end))));
+    fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
     // Your filter logic here
   };
+
+
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-normal justify-center p-4">
       <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
@@ -289,6 +326,11 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
               </>
+            }
+            {fetchDataType == 'custom' && customDate.start && customDate.end &&
+              <span onClick={() => showAllClick('custom')} className="text-m font-medium text-gray-900 w-[230px] text-center block cursor-pointer">
+                {format(new Date(customDate.start), 'dd MMM yyyy')} - {format(new Date(customDate.end), 'dd MMM yyyy')}
+              </span>
             }
             <button
               onClick={onClose}
@@ -423,11 +465,13 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                                     <div className="grid grid-cols-5 gap-2">
                                       {weekArr.map((k) => {
                                         const date = addDays(startOfWeek(weekStart, { weekStartsOn: 1 }), k.id);
+                                        if (fetchDataType === 'monthly' && isDateInSelectedMonth(date, selectedMonth.getMonth() + 1, selectedMonth.getFullYear()) === false)
+                                          return null; // Skip rendering if date is not in selected month
                                         return (
                                           <div key={k.day} className="bg-white rounded p-2 flex flex-col items-center">
                                             <span className="text-xs text-gray-500">{k.day}</span>
                                             <span className="font-medium text-gray-900">{week[k.key]}h</span>
-                                            <span className="text-[10px] text-gray-400 mt-0.5">{ordinal(date.getDate())} {format(date.getDate(), 'MMM')} {week.year}</span>
+                                            <span className="text-[10px] text-gray-400 mt-0.5">{ordinal(date.getDate())} {format(date, 'MMM yyyy')}</span>
                                           </div>
                                         );
                                       })}
@@ -456,6 +500,8 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         <DateRangeSelector
           onDateChange={handleDateRange}
           onClose={() => setShowDatePicker(false)}
+          defaultStart={customDate.start}
+          defaultEnd={customDate.end}
         />
       )}
     </div>

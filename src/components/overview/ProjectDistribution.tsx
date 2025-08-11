@@ -39,7 +39,7 @@ const renderCustomizedLabel = (props: any) => {
 export const ProjectDistribution: React.FC<ProjectDistributionProps> = ({ data, title }) => {
   // Sort data by hours descending
   const sortedData = [...data].sort((a, b) => b.hours - a.hours);
-  console.log(data, 'pie data')
+  // console.log(data, 'pie data')
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <h2 className="text-lg font-semibold text-gray-900 mb-4" style={{ marginTop: 12 }}>{title || 'Hours by Project'}</h2>
