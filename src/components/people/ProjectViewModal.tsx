@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { User, Project } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { ProjectDetailsModal } from '../projects/ProjectDetailsModal';
+import { format } from 'date-fns';
 
 interface ProjectViewModalProps {
   user: User & { projects?: Project[] };
@@ -18,6 +19,7 @@ type ProjectData = {
   client_id: string
   completed_at: string
   status: string
+  assigned_at?: string
 }
 
 export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClose }) => {
@@ -31,6 +33,27 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
   const fetchUserDetailedHours = async (userData: any) => {
     try {
 
+
+      const { data: projectList, error: projectListError } = await supabase
+        .from('project_users')
+        .select(`
+          assigned_at,
+          project_id, 
+          projects (
+            name,
+            description,
+            allocated_hours,
+            client_id,
+            status,
+            completed_at
+          )`
+        )
+        .eq('user_id', userData.id)
+
+      if (projectListError) {
+        console.error('Error fetching data:', projectListError)
+        return
+      }
 
       const { data, error } = await supabase
         .from('timesheets')
@@ -47,6 +70,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           )
         `)
         .eq('user_id', userData.id)
+        .neq('status', 'rejected');
 
       if (error) {
         console.error('Error fetching data:', error)
@@ -75,6 +99,26 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       ) as ProjectData[]
 
       console.log(groupedArray, 'timesheetsData', data)
+      projectList.map((k: any) => {
+        if (k.project_id && !groupedArray.find((p: any) => p.id === k.project_id)) {
+          groupedArray.push({
+            id: k.project_id,
+            name: k.projects?.name || 'Unknown Project',
+            description: k.projects?.description || 'No description',
+            allocated_hours: k.projects?.allocated_hours || 0,
+            client_id: k.projects?.client_id || '',
+            total_hours: 0,
+            status: k.projects?.status || 'Not started',
+            completed_at: k.projects?.completed_at || '',
+            assigned_at: k.assigned_at || ''
+          })
+        } else {
+          const existingProject = groupedArray.find((p: any) => p.id === k.project_id);
+          if (existingProject && k.assigned_at) {
+            existingProject.assigned_at = k.assigned_at;
+          }
+        }
+      })
       if (groupedArray && groupedArray.length) {
         setProjectArr(groupedArray)
       }
@@ -139,7 +183,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
                 <p className="text-sm text-gray-500">Total hours: {projectArr.reduce(
                   (sum, item) => sum + item.total_hours,
                   0
-                )}</p>
+                )} hr</p>
               }
             </div>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
@@ -148,7 +192,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           </div>
           {/* Scrollable Content */}
           <div className="overflow-y-auto space-y-4 flex-1">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Project Breakdown</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Total Projects Assigned : {projectArr && projectArr.length || 0}</h4>
             {projectArr && projectArr.length > 0 ? (
               projectArr.map((project: any) => (
                 <div
@@ -160,10 +204,11 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
                   <div>
                     <p className="font-medium text-gray-900">{project.name}</p>
                     <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
-                    <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours}</p>
+                    <p className="text-sm text-gray-500">Assigned On: {format(project.assigned_at,"dd MMM yyyy")}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">{project.total_hours} total hours</p>
+                    <p className="font-medium">Total Hours: {project.total_hours} hr</p>
+                    <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours} hr</p>
                   </div>
                 </div>
               ))

@@ -6,6 +6,8 @@ import { format, subMonths, addMonths, startOfWeek, addDays, endOfWeek } from 'd
 import { WeeklyChart } from '../overview/WeeklyChart';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
+import { el } from 'date-fns/locale';
+import DateRangeSelector from '../shared/DateRangeSelector';
 
 interface ProjectDetailsModalProps {
   project: Project & {
@@ -31,8 +33,9 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const [expandedWeeks, setExpandedWeeks] = useState<{ [userId: string]: number[] }>({});
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [monthlyHourUsed, setMonthlyHourUsed] = useState(0);
-  const [fetchAllData, setFetchAllData] = useState(true)
+  const [fetchDataType, setFetchDataType] = useState('all'); // 'all' / 'monthly' / 'custom'
   const [pieChartData, setPieChartData] = useState([])
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const weekArr = [
     {
       id: 0,
@@ -223,14 +226,23 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       year: date.getFullYear()
     };
   }
-  const showAllClick = (val: boolean) => {
-    setFetchAllData(val)
-    if (val) {
+  const showAllClick = (val: string) => {
+    setFetchDataType(val)
+    if (val === 'all') {
       fetchUserHours({});
-    } else {
+    } else if (val === 'monthly') {
       onMonthChange(new Date())
+    } else if (val === 'custom') {
+      // const { startWeek, endWeek, year } = getStartAndEndWeekNumbers(selectedMonth);
+      // fetchUserHours({ startWeek, endWeek, year });
+      setShowDatePicker(true)
     }
   }
+  const handleDateRange = (start: string, end: string) => {
+    console.log("Selected Start Date:", start);
+    console.log("Selected End Date:", end);
+    // Your filter logic here
+  };
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-normal justify-center p-4">
       <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
@@ -240,20 +252,26 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           <div className="flex items-center gap-2 min-w-[220px] justify-end">
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => showAllClick(true)}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchAllData ? 'bg-[#1732ca]' : 'bg-white'} ${fetchAllData ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => showAllClick('all')}
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
 
               >
                 {'Show All Data'}
               </button>
               <button
-                onClick={() => showAllClick(false)}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${!fetchAllData ? 'bg-[#1732ca]' : 'bg-white'} ${!fetchAllData ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => showAllClick('monthly')}
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'monthly' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'monthly' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
               >
                 {'Monthly Data'}
               </button>
+              <button
+                onClick={() => showAllClick('custom')}
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'custom' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'custom' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
+              >
+                {'Custom Dates'}
+              </button>
             </div>
-            {!fetchAllData &&
+            {fetchDataType == 'monthly' &&
               <>
                 <button
                   onClick={() => onMonthChange(subMonths(selectedMonth, 1))}
@@ -290,12 +308,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           </div>
 
           {/* Stats Cards */}
-          <div className={`grid ${fetchAllData ? 'grid-cols-3' : 'grid-cols-4'} gap-4 mb-8`}>
+          <div className={`grid ${fetchDataType == 'all' ? 'grid-cols-3' : 'grid-cols-4'} gap-4 mb-8`}>
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-500 mb-1">Used Total</p>
               <p className="text-2xl font-semibold">{project.totalHoursUsed || 0}h</p>
             </div>
-            {!fetchAllData &&
+            {fetchDataType != 'all' &&
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-500 mb-1">Used in {format(selectedMonth, 'MMMM')}</p>
                 <p className="text-2xl font-semibold">{monthlyHourUsed || 0}h</p>
@@ -434,6 +452,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           </div>
         </div>
       </div>
+      {showDatePicker && (
+        <DateRangeSelector
+          onDateChange={handleDateRange}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
     </div>
   );
 }; 
