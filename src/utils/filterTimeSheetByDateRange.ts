@@ -73,7 +73,7 @@ export const filterTimesheetsByDateRange = async (
 ): Promise<Timesheet[]> => {
   const startDate = parseISO(startDateStr);
   const endDate = parseISO(endDateStr);
-  console.log(timesheets, startDate, endDate, 'startDate, endDate')
+  // console.log(timesheets, startDate, endDate, 'startDate, endDate')
   return timesheets
     .map((week) => {
       const mondayDate = getMondayDate(week.year, week.week_number);
@@ -100,9 +100,9 @@ export const filterTimesheetsByDateRange = async (
         const newMonthData = weekdayKeys.reduce((acc, dayKey) => {
           const dayOffset = weekdayIndex[dayKey];
           const actualDate = addDays(mondayDate, dayOffset);
-
+          const actualMonthKey = `${actualDate.getFullYear()}-${String(actualDate.getMonth() + 1).padStart(2, '0')}`;
           if (
-            actualDate.toISOString().slice(0, 7) === monthKey &&
+            actualMonthKey === monthKey &&
             isWithinInterval(actualDate, { start: startDate, end: endDate })
           ) {
             const hours = monthData[dayKey] || 0;

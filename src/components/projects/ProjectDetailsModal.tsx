@@ -70,7 +70,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
   useEffect(() => {
 
-    console.log(project, "project")
+    // console.log(project, "project")
     fetchUserHours({});
   }, [project.id, project.users]);
 
@@ -123,12 +123,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         let timesheetData = timesheetDataFromDB
 
 
-        console.log(timesheetData, 'timesheetData', fetchDataType)
+        // console.log(timesheetData, 'timesheetData', fetchDataType)
         if (fetchDataType === 'monthly' && filter.year && filter.yearMonth) {
           const newTimeSheet: any = []
           timesheetDataFromDB?.map((tim: any) => {
             const timData = { ...tim }
-            console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
+            // console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
             if (tim.month_hours && tim.month_hours[filter.yearMonth]) {
               timData.total_hours = tim.month_hours[filter.yearMonth].monday_hours + tim.month_hours[filter.yearMonth].tuesday_hours + tim.month_hours[filter.yearMonth].wednesday_hours + tim.month_hours[filter.yearMonth].thursday_hours + tim.month_hours[filter.yearMonth].friday_hours
               timData.monday_hours = tim.month_hours[filter.yearMonth].monday_hours
@@ -145,69 +145,10 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           timesheetData = newTimeSheet
         }
         if (fetchDataType === 'custom') {
-          console.log(filter)
+          // console.log(filter)
           timesheetData = await filterTimesheetsByDateRange(timesheetDataFromDB || [], format(new Date(filter.startDate), 'yyyy-MM-dd'), format(new Date(filter.endDate), 'yyyy-MM-dd'))
-          /*
-          .then((filteredData) => {
-            console.log(filteredData, 'filteredData')
-            let monthly_hour_used = filteredData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
-            setMonthlyHourUsed(monthly_hour_used)
-            console.log(monthlyHourUsed, 'monthlyHourUsed')
-            const userHoursMap: Record<string, number> = {};
-            filteredData?.forEach(timesheet => {
-              const userId = timesheet.user_id;
-              userHoursMap[userId] = (userHoursMap[userId] || 0) + (timesheet.total_hours || 0);
-            });
-
-
-
-            const enhancedUsers = project?.users?.map(user => {
-              const userTimesheets = (filteredData?.filter((u) => u.user_id === user.id) || [])
-                .sort((a, b) => b.week_number - a.week_number);
-
-              return {
-                ...user,
-                hoursUsed: userHoursMap[user.id] || 0,
-                timeSheetData: userTimesheets
-              };
-            });
-            console.log(enhancedUsers, 'enhancedUsers')
-            // Sort users by hours used (descending)
-            enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
-            let pieData: any = []
-            enhancedUsers?.map((l, ind) => {
-              pieData.push(
-                {
-                  name: l.full_name,
-                  hours: l.hoursUsed,
-                  color: PROJECT_COLORS[ind]
-                }
-              )
-            })
-            if (project.users && project.users.length && project.users.length == 1) {
-              // pie data when popup open for only one user, as project detail for a user
-              pieData.push(
-                {
-                  name: "",
-                  hours: project.allocated_hours - (project?.totalHoursUsed || 0),
-                  color: PROJECT_COLORS[pieData.length]
-                }
-              )
-            } else {
-              pieData.push(
-                {
-                  name: "Pending",
-                  hours: project.allocated_hours - (project?.totalHoursUsed || 0),
-                  color: PROJECT_COLORS[pieData.length]
-                }
-              )
-            }
-
-            setPieChartData(pieData)
-            setUsersWithHours(enhancedUsers ? enhancedUsers : []);
-          })
-
-*/
+          // console.log(JSON.stringify(timesheetData))
+          // console.log(timesheetData, 'timesheetData after filter')
         }
 
 
@@ -218,7 +159,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
         let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
         setMonthlyHourUsed(monthly_hour_used)
-        console.log(monthlyHourUsed, 'monthlyHourUsed')
+        // console.log(monthlyHourUsed, 'monthlyHourUsed')
         const userHoursMap: Record<string, number> = {};
         timesheetData?.forEach(timesheet => {
           const userId = timesheet.user_id;
@@ -237,7 +178,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             timeSheetData: userTimesheets
           };
         });
-        console.log(enhancedUsers, 'enhancedUsers')
+        // console.log(enhancedUsers, 'enhancedUsers')
         // Sort users by hours used (descending)
         enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
         let pieData: any = []
@@ -316,7 +257,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const onMonthChange = (date: any) => {
     setSelectedMonth(date)
     fetchUserHours(getStartAndEndWeekNumbers(date));
-    console.log(date, getStartAndEndWeekNumbers(date))
+    // console.log(date, getStartAndEndWeekNumbers(date))
   }
 
   const getStartAndEndWeekNumbers = (date: Date) => {
@@ -353,9 +294,9 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const handleDateRange = (start: any, end: any) => {
     setShowDatePicker(false)
     setCustomDate({ start: start, end: end })
-    console.log("Selected Start Date:", start);
-    console.log("Selected End Date:", end);
-    console.log("getWeekDateRangeBetweenTwoDates", JSON.stringify(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end))));
+    // console.log("Selected Start Date:", start);
+    // console.log("Selected End Date:", end);
+    // console.log("getWeekDateRangeBetweenTwoDates", JSON.stringify(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end))));
     fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
 
 
