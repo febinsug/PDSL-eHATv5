@@ -45,5 +45,6 @@ export const getWeekNumberRangeBetweenTwoDates = (start: Date, end: Date) => {
         currentYear++;
     }
 
-    return { dateRangeWeek: result };
+    return { dateRangeWeek: result, startDate: start, endDate: end };
 };
+

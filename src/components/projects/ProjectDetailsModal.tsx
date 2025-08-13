@@ -7,7 +7,7 @@ import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
 import DateRangeSelector from '../shared/DateRangeSelector';
 import { getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
-
+import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 interface ProjectDetailsModalProps {
   project: Project & {
     users?: UserType[],
@@ -103,95 +103,176 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         query = query.eq('year', filter.year);
       }
 
-      if (filter.dateRangeWeek && filter.dateRangeWeek.length > 0) {
+
+      // If date range week filter is provided
+      if (filter.dateRangeWeek?.length) {
+        // Create more precise or conditions
         const orConditions = filter.dateRangeWeek.map((r: any) =>
           `and(year.eq.${r.year},week_number.gte.${r.startWeek},week_number.lte.${r.endWeek})`
-        );
+        ).join(',');
 
-        query = query.or(`(${orConditions.join(',')})`);
+        query = query.or(orConditions);
       }
 
 
-      const { data: timesheetDataFromDB } = await query;
-      // Calculate total hours per user
-      let timesheetData = timesheetDataFromDB
-      console.log(timesheetData, 'timesheetData')
-      if (fetchDataType === 'monthly' && filter.year && filter.yearMonth) {
-        const newTimeSheet: any = []
-        timesheetDataFromDB?.map((tim: any) => {
-          const timData = { ...tim }
-          console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
-          if (tim.month_hours && tim.month_hours[filter.yearMonth]) {
-            timData.total_hours = tim.month_hours[filter.yearMonth].monday_hours + tim.month_hours[filter.yearMonth].tuesday_hours + tim.month_hours[filter.yearMonth].wednesday_hours + tim.month_hours[filter.yearMonth].thursday_hours + tim.month_hours[filter.yearMonth].friday_hours
-            timData.monday_hours = tim.month_hours[filter.yearMonth].monday_hours
-            timData.tuesday_hours = tim.month_hours[filter.yearMonth].tuesday_hours
-            timData.wednesday_hours = tim.month_hours[filter.yearMonth].wednesday_hours
-            timData.thursday_hours = tim.month_hours[filter.yearMonth].thursday_hours
-            timData.friday_hours = tim.month_hours[filter.yearMonth].friday_hours
-            timData.month_hours = { [filter.yearMonth]: tim.month_hours[filter.yearMonth] }
-            newTimeSheet.push(timData)
-          }
-          // console.log(timData, 'timData')
+      // const { data: timesheetDataFromDB } = await query;
+      query.then(async ({ data: timesheetDataFromDB }) => {
+        // use timesheetDataFromDB here
+
+        // Calculate total hours per user
+        let timesheetData = timesheetDataFromDB
+
+
+        console.log(timesheetData, 'timesheetData', fetchDataType)
+        if (fetchDataType === 'monthly' && filter.year && filter.yearMonth) {
+          const newTimeSheet: any = []
+          timesheetDataFromDB?.map((tim: any) => {
+            const timData = { ...tim }
+            console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
+            if (tim.month_hours && tim.month_hours[filter.yearMonth]) {
+              timData.total_hours = tim.month_hours[filter.yearMonth].monday_hours + tim.month_hours[filter.yearMonth].tuesday_hours + tim.month_hours[filter.yearMonth].wednesday_hours + tim.month_hours[filter.yearMonth].thursday_hours + tim.month_hours[filter.yearMonth].friday_hours
+              timData.monday_hours = tim.month_hours[filter.yearMonth].monday_hours
+              timData.tuesday_hours = tim.month_hours[filter.yearMonth].tuesday_hours
+              timData.wednesday_hours = tim.month_hours[filter.yearMonth].wednesday_hours
+              timData.thursday_hours = tim.month_hours[filter.yearMonth].thursday_hours
+              timData.friday_hours = tim.month_hours[filter.yearMonth].friday_hours
+              timData.month_hours = { [filter.yearMonth]: tim.month_hours[filter.yearMonth] }
+              newTimeSheet.push(timData)
+            }
+            // console.log(timData, 'timData')
+          })
+          // console.log(newTimeSheet, 'newTimeSheet')
+          timesheetData = newTimeSheet
+        }
+        if (fetchDataType === 'custom') {
+          console.log(filter)
+          timesheetData = await filterTimesheetsByDateRange(timesheetDataFromDB || [], format(new Date(filter.startDate), 'yyyy-MM-dd'), format(new Date(filter.endDate), 'yyyy-MM-dd'))
+          /*
+          .then((filteredData) => {
+            console.log(filteredData, 'filteredData')
+            let monthly_hour_used = filteredData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
+            setMonthlyHourUsed(monthly_hour_used)
+            console.log(monthlyHourUsed, 'monthlyHourUsed')
+            const userHoursMap: Record<string, number> = {};
+            filteredData?.forEach(timesheet => {
+              const userId = timesheet.user_id;
+              userHoursMap[userId] = (userHoursMap[userId] || 0) + (timesheet.total_hours || 0);
+            });
+
+
+
+            const enhancedUsers = project?.users?.map(user => {
+              const userTimesheets = (filteredData?.filter((u) => u.user_id === user.id) || [])
+                .sort((a, b) => b.week_number - a.week_number);
+
+              return {
+                ...user,
+                hoursUsed: userHoursMap[user.id] || 0,
+                timeSheetData: userTimesheets
+              };
+            });
+            console.log(enhancedUsers, 'enhancedUsers')
+            // Sort users by hours used (descending)
+            enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
+            let pieData: any = []
+            enhancedUsers?.map((l, ind) => {
+              pieData.push(
+                {
+                  name: l.full_name,
+                  hours: l.hoursUsed,
+                  color: PROJECT_COLORS[ind]
+                }
+              )
+            })
+            if (project.users && project.users.length && project.users.length == 1) {
+              // pie data when popup open for only one user, as project detail for a user
+              pieData.push(
+                {
+                  name: "",
+                  hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+                  color: PROJECT_COLORS[pieData.length]
+                }
+              )
+            } else {
+              pieData.push(
+                {
+                  name: "Pending",
+                  hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+                  color: PROJECT_COLORS[pieData.length]
+                }
+              )
+            }
+
+            setPieChartData(pieData)
+            setUsersWithHours(enhancedUsers ? enhancedUsers : []);
+          })
+
+*/
+        }
+
+
+
+
+
+
+
+        let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
+        setMonthlyHourUsed(monthly_hour_used)
+        console.log(monthlyHourUsed, 'monthlyHourUsed')
+        const userHoursMap: Record<string, number> = {};
+        timesheetData?.forEach(timesheet => {
+          const userId = timesheet.user_id;
+          userHoursMap[userId] = (userHoursMap[userId] || 0) + (timesheet.total_hours || 0);
+        });
+
+
+
+        const enhancedUsers = project?.users?.map(user => {
+          const userTimesheets = (timesheetData?.filter((u) => u.user_id === user.id) || [])
+            .sort((a, b) => b.week_number - a.week_number);
+
+          return {
+            ...user,
+            hoursUsed: userHoursMap[user.id] || 0,
+            timeSheetData: userTimesheets
+          };
+        });
+        console.log(enhancedUsers, 'enhancedUsers')
+        // Sort users by hours used (descending)
+        enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
+        let pieData: any = []
+        enhancedUsers?.map((l, ind) => {
+          pieData.push(
+            {
+              name: l.full_name,
+              hours: l.hoursUsed,
+              color: PROJECT_COLORS[ind]
+            }
+          )
         })
-        // console.log(newTimeSheet, 'newTimeSheet')
-        timesheetData = newTimeSheet
-      }
+        if (project.users && project.users.length && project.users.length == 1) {
+          // pie data when popup open for only one user, as project detail for a user
+          pieData.push(
+            {
+              name: "",
+              hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+              color: PROJECT_COLORS[pieData.length]
+            }
+          )
+        } else {
+          pieData.push(
+            {
+              name: "Pending",
+              hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+              color: PROJECT_COLORS[pieData.length]
+            }
+          )
+        }
 
-      let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
-      setMonthlyHourUsed(monthly_hour_used)
-      console.log(monthlyHourUsed, 'monthlyHourUsed')
-      const userHoursMap: Record<string, number> = {};
-      timesheetData?.forEach(timesheet => {
-        const userId = timesheet.user_id;
-        userHoursMap[userId] = (userHoursMap[userId] || 0) + (timesheet.total_hours || 0);
+        setPieChartData(pieData)
+        setUsersWithHours(enhancedUsers ? enhancedUsers : []);
+
       });
-
-
-
-      const enhancedUsers = project.users.map(user => {
-        const userTimesheets = (timesheetData?.filter((u) => u.user_id === user.id) || [])
-          .sort((a, b) => b.week_number - a.week_number);
-
-        return {
-          ...user,
-          hoursUsed: userHoursMap[user.id] || 0,
-          timeSheetData: userTimesheets
-        };
-      });
-      console.log(enhancedUsers, 'enhancedUsers')
-      // Sort users by hours used (descending)
-      enhancedUsers.sort((a, b) => b.hoursUsed - a.hoursUsed);
-      let pieData: any = []
-      enhancedUsers.map((l, ind) => {
-        pieData.push(
-          {
-            name: l.full_name,
-            hours: l.hoursUsed,
-            color: PROJECT_COLORS[ind]
-          }
-        )
-      })
-      if (project.users && project.users.length && project.users.length == 1) {
-        // pie data when popup open for only one user, as project detail for a user
-        pieData.push(
-          {
-            name: "",
-            hours: project.allocated_hours - (project?.totalHoursUsed || 0),
-            color: PROJECT_COLORS[pieData.length]
-          }
-        )
-      } else {
-        pieData.push(
-          {
-            name: "Pending",
-            hours: project.allocated_hours - (project?.totalHoursUsed || 0),
-            color: PROJECT_COLORS[pieData.length]
-          }
-        )
-      }
-
-      setPieChartData(pieData)
-      setUsersWithHours(enhancedUsers);
     } catch (error) {
       console.error('Error fetching user hours:', error);
     } finally {
@@ -276,6 +357,8 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     console.log("Selected End Date:", end);
     console.log("getWeekDateRangeBetweenTwoDates", JSON.stringify(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end))));
     fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
+
+
     // Your filter logic here
   };
 
@@ -357,7 +440,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             </div>
             {fetchDataType != 'all' &&
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-500 mb-1">Used in {format(selectedMonth, 'MMMM')}</p>
+                <p className="text-sm text-gray-500 mb-1">Used{fetchDataType == 'custom' ? (" between " + format(new Date(customDate.start), 'dd MMM yy') + " - " + format(new Date(customDate.end), 'dd MMM yy')) : (" in " + format(selectedMonth, 'MMMM'))}</p>
                 <p className="text-2xl font-semibold">{monthlyHourUsed || 0}h</p>
               </div>
             }
@@ -465,8 +548,24 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                                     <div className="grid grid-cols-5 gap-2">
                                       {weekArr.map((k) => {
                                         const date = addDays(startOfWeek(weekStart, { weekStartsOn: 1 }), k.id);
-                                        if (fetchDataType === 'monthly' && isDateInSelectedMonth(date, selectedMonth.getMonth() + 1, selectedMonth.getFullYear()) === false)
-                                          return null; // Skip rendering if date is not in selected month
+                                        if (fetchDataType === 'monthly' && isDateInSelectedMonth(date, selectedMonth.getMonth() + 1, selectedMonth.getFullYear()) === false) {
+                                          return (
+                                            <div key={k.day} className="bounded p-2 flex flex-col items-center">
+                                            </div>
+                                          )
+                                          // return blank view if date is not in selected month
+                                        }
+                                        const d = new Date(date).setHours(0, 0, 0, 0);
+                                        const start = new Date(customDate.start).setHours(0, 0, 0, 0);
+                                        const end = new Date(customDate.end).setHours(0, 0, 0, 0);
+
+                                        if (fetchDataType === 'custom' && (d < start || d > end)) {
+                                          return (
+                                            <div key={k.day} className="bounded p-2 flex flex-col items-center">
+                                            </div>
+                                          )
+                                          // return blank view if date is not in custom date range
+                                        }
                                         return (
                                           <div key={k.day} className="bg-white rounded p-2 flex flex-col items-center">
                                             <span className="text-xs text-gray-500">{k.day}</span>
