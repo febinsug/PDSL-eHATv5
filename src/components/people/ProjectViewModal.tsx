@@ -281,11 +281,17 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
   }
 
   return (
-
-
-    <div>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 bg-opacity-50 flex justify-center p-8">
-        <div className="bg-white rounded-xl p-6 w-full mx-4 flex flex-col h-full">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-full sm:max-w-lg md:max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Projects for {user.full_name || user.username}</h2>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto p-4 sm:p-6 flex-1 flex flex-col gap-4">
           {/* Header - Fixed */}
           <div className="flex items-center justify-between mb-4 sticky top-30">
             <div>
@@ -338,12 +344,6 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
                   {format(new Date(customDate.start), 'dd MMM yyyy')} - {format(new Date(customDate.end), 'dd MMM yyyy')}
                 </span>
               }
-              <button
-                onClick={onClose}
-                className="rounded-full p-2 hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
             </div>
 
           </div>
@@ -360,7 +360,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           </div>
           <div className="flex flex-1 overflow-hidden">
             {/* Scrollable Content */}
-            <div className="w-1/2 overflow-y-auto p-1 space-y-4">
+            <div className="w-full sm:w-1/2 overflow-y-auto p-1 space-y-4">
               {projectArr && projectArr.length > 0 ? (
                 projectArr.map((project: any) => (
                     <div
@@ -384,7 +384,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
                 <p className="text-gray-500 text-center py-4">No projects assigned</p>
               )}
             </div>
-            <div className="w-1/2 p-1 overflow-y-auto">
+            <div className="hidden sm:block sm:w-1/2 p-1 overflow-y-auto">
               <ProjectDistribution data={pieChartData} title={""} hideOutline={true} />
             </div>
           </div>

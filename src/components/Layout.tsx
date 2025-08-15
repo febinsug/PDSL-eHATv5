@@ -36,6 +36,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon, label, active }) =>
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const { user } = useAuthStore();
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   // Check for auth on every render
   if (!user) {
@@ -47,12 +48,25 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <aside className="w-64 bg-[#1732ca] p-4 flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-3">
+      {/* Mobile Hamburger */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-[#1732ca] text-white shadow-lg"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="Open menu"
+        style={{ marginRight: 8 }}
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+      {/* Sidebar - desktop & mobile drawer */}
+      <aside className={`bg-[#1732ca] p-4 flex flex-col transition-all duration-300 z-40
+        w-64 md:static md:translate-x-0 fixed top-0 left-0 h-full
+        ${drawerOpen ? 'translate-x-0' : '-translate-x-full'} md:block`}
+        style={{ boxShadow: drawerOpen ? '0 0 0 9999px rgba(0,0,0,0.4)' : undefined }}
+      >
+        <div className="flex items-center gap-2 px-4 py-3 md:mb-4 md:mt-2 md:justify-start justify-between">
           <Clock className="w-6 h-6 text-white" />
           <h1 className="text-lg font-bold text-white">PDSL eHAT</h1>
         </div>
-        
         <nav className="mt-8 space-y-1 flex-1">
           <SidebarItem
             to="/"
@@ -99,8 +113,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             />
           )}
         </nav>
-
-        <div className="border-t border-white/10 pt-4 space-y-4">
+        {/* User info, role, settings, sign out - stick to bottom in desktop, stack in mobile */}
+        <div className="md:absolute md:bottom-0 md:left-0 md:w-full border-t border-white/10 pt-4 space-y-4 bg-[#1732ca]">
           <div className="px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
@@ -130,7 +144,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </div>
             </div>
           </div>
-
           <SidebarItem
             to="/settings"
             icon={<Settings className="w-5 h-5" />}
@@ -148,10 +161,28 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             Sign Out
           </button>
         </div>
+        {/* Mobile close button */}
+        <button
+          className="md:hidden absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 text-white"
+          onClick={() => setDrawerOpen(false)}
+          aria-label="Close menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </aside>
-
+      {/* Overlay for mobile drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setDrawerOpen(false)} />
+      )}
       <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
+        <div className="p-4 sm:p-6 md:p-8 max-w-full w-full h-full">
+          {/* Add margin to avoid overlap in mobile */}
+          <div className="md:hidden flex items-center justify-between mb-4">
+            <div className="mr-2" />
+            <h1 className="text-2xl font-semibold text-gray-900 ">Overview</h1>
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

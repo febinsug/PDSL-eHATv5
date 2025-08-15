@@ -494,37 +494,33 @@ export const Projects = () => {
   const sortedProjects = sortProjects(filteredProjects);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Project Management</h1>
-        <div className="flex flex-col sm:flex-row gap-3">
-          {!showForm && !showClientForm && (
-            <>
-              <button
-                onClick={() => setShowClients(!showClients)}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                <Building2 className="w-4 h-4" />
-                {showClients ? 'Show Projects' : 'Show Clients'}
-              </button>
-              {showClients ? (
-                <button
-                  onClick={() => setShowClientForm(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Client
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowForm(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Project
-                </button>
-              )}
-            </>
+    <div className="space-y-6 p-4 sm:p-6 md:p-8 max-w-full w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={() => setShowClients(!showClients)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          >
+            <Building2 className="w-4 h-4" />
+            {showClients ? 'Show Projects' : 'Show Clients'}
+          </button>
+          {showClients ? (
+            <button
+              onClick={() => setShowClientForm(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+            >
+              <Plus className="w-4 h-4" />
+              New Client
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+            >
+              <Plus className="w-4 h-4" />
+              New Project
+            </button>
           )}
         </div>
       </div>

@@ -302,68 +302,17 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-normal justify-center p-4">
-      <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
-        {/* Header - Fixed */}
-        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10 rounded-t-xl">
-          <h2 className="text-xl font-semibold text-gray-900">{project && project.users && project.users.length && project.users.length == 1 ? (project.users[0].full_name + " - ") : ""}{project.name}</h2>
-          <div className="flex items-center gap-2 min-w-[220px] justify-end">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => showAllClick('all')}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
-
-              >
-                {'Show All Data'}
-              </button>
-              <button
-                onClick={() => showAllClick('monthly')}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'monthly' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'monthly' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
-              >
-                {'Monthly Data'}
-              </button>
-              <button
-                onClick={() => showAllClick('custom')}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'custom' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'custom' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
-              >
-                {'Custom Dates'}
-              </button>
-            </div>
-            {fetchDataType == 'monthly' &&
-              <>
-                <button
-                  onClick={() => onMonthChange(subMonths(selectedMonth, 1))}
-                  className="p-1.5 hover:bg-gray-100 rounded-full"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <span className="text-sm font-medium text-gray-900 w-[120px] text-center block">
-                  {format(selectedMonth, 'MMMM yyyy')}
-                </span>
-                <button
-                  onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
-                  className="p-1.5 hover:bg-gray-100 rounded-full"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                </button>
-              </>
-            }
-            {fetchDataType == 'custom' && customDate.start && customDate.end &&
-              <span onClick={() => showAllClick('custom')} className="text-m font-medium text-gray-900 w-[230px] text-center block cursor-pointer">
-                {format(new Date(customDate.start), 'dd MMM yyyy')} - {format(new Date(customDate.end), 'dd MMM yyyy')}
-              </span>
-            }
-            <button
-              onClick={onClose}
-              className="rounded-full p-2 hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-full sm:max-w-lg md:max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{project.name}</h2>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
-
         {/* Scrollable Content */}
-        <div className="overflow-y-auto p-6 flex-1">
+        <div className="overflow-y-auto p-4 sm:p-6 flex-1 flex flex-col gap-4">
           {/* Project Details */}
           <div className="mb-6">
             <p className="text-sm text-gray-500 mb-2">Description</p>
@@ -532,6 +481,8 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             </div>
           </div>
         </div>
+        {/* Actions (if any) */}
+        {/* <div className="p-4 sm:p-6 border-t flex flex-col sm:flex-row gap-2"> ...actions... </div> */}
       </div>
       {showDatePicker && (
         <DateRangeSelector
@@ -543,4 +494,4 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       )}
     </div>
   );
-}; 
+};

@@ -111,9 +111,9 @@ export const Team = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Your Team</h1>
+    <div className="space-y-6 p-4 sm:p-6 md:p-8 max-w-full w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Team</h1>
       </div>
 
       {error && (

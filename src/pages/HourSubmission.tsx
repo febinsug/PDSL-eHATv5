@@ -485,137 +485,63 @@ export const HourSubmission = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Submit Hours</h1>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const newDate = subWeeks(selectedDate, 1);
-                handleWeekSelect(newDate);
-              }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            
-            <button
-              onClick={() => setIsWeekPickerOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              <Calendar className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium">
-                Week {weekNumber}, {year}
-                <span className="text-gray-500 ml-2">
-                  ({format(selectedDate, 'MMM d')} - {format(addDays(selectedDate, 4), 'MMM d')})
-                </span>
-              </span>
-            </button>
-            
-            <button
-              onClick={() => {
-                const newDate = addWeeks(selectedDate, 1);
-                handleWeekSelect(newDate);
-              }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        </div>
-
-        {timesheetStatus === 'approved' && (
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-gray-600">
-              This timesheet has been approved. You cannot make changes to approved timesheets.
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            <p>{error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5" />
-            <p>Hours submitted successfully!</p>
-          </div>
-        )}
-
-        <SubmissionForm
-          projects={projects}
-          hours={hours}
-          weekDays={weekDays}
-          handleHourChange={handleHourChange}
-          isReadOnly={timesheetStatus === 'approved'}
-        />
-
-        {editingTimesheet && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-            <p className="text-blue-600">
-              Editing timesheet for Week {editingTimesheet.week_number}, {editingTimesheet.year}
-            </p>
-            <button
-              onClick={() => setEditingTimesheet(null)}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={handleSubmit}
-            disabled={timesheetStatus === 'approved'}
-            className="px-6 py-2.5 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90 disabled:opacity-50 font-medium"
-          >
-            Submit Hours
-          </button>
-        </div>
-
-        <div className="mt-8">
-          <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Your Submissions</h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <span className="text-sm font-medium">
-                    {format(selectedMonth, 'MMMM yyyy')}
-                  </span>
-                  <button
-                    onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <ChevronRight className="w-5 h-5 text-gray-600" />
-                  </button>
-                </div>
-              </div>
-              <SubmissionHistory
-                timesheets={submittedTimesheets}
-                expandedTimesheets={expandedTimesheets}
-                toggleTimesheet={toggleTimesheet}
-                onEdit={handleEditTimesheet}
-                selectedMonth={selectedMonth}
-                onMonthChange={setSelectedMonth}
-                showHeader={false}
-              />
-            </div>
-          </div>
+    <div className="space-y-6 p-4 sm:p-6 md:p-8 max-w-full w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Hour Submission</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button className="px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90">Submit Hours</button>
         </div>
       </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <SubmissionForm
+            projects={projects}
+            hours={hours}
+            weekDays={weekDays}
+            handleHourChange={handleHourChange}
+            isReadOnly={timesheetStatus === 'approved'}
+          />
+        </div>
+        <div className="space-y-4">
+          <SubmissionHistory
+            timesheets={submittedTimesheets}
+            expandedTimesheets={expandedTimesheets}
+            toggleTimesheet={toggleTimesheet}
+            onEdit={handleEditTimesheet}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            showHeader={false}
+          />
+        </div>
+      </div>
+
+      {editingTimesheet && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+          <p className="text-blue-600">
+            Editing timesheet for Week {editingTimesheet.week_number}, {editingTimesheet.year}
+          </p>
+          <button
+            onClick={() => setEditingTimesheet(null)}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          <p>Hours submitted successfully!</p>
+        </div>
+      )}
 
       {isWeekPickerOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">

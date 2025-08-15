@@ -410,74 +410,54 @@ export const Approvals = () => {
   const sortedApprovedTimesheets = sortTimesheets(filteredApprovedTimesheets, sortOption);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Timesheet Approvals</h1>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setSelectedMonth(prev => subMonths(prev, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="text-lg font-medium">
-            {format(selectedMonth, 'MMMM yyyy')}
-          </span>
-          <button
-            onClick={() => setSelectedMonth(prev => addMonths(prev, 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={selectedMonth >= new Date()}
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+    <div className="space-y-6 p-4 sm:p-6 md:p-8 max-w-full w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Approvals</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button className="px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90">Filter</button>
         </div>
       </div>
-
-      {errors.find(e => e.timesheetId === 'fetch') && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          <p>{errors.find(e => e.timesheetId === 'fetch')?.message}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <PendingApprovals
+            timesheets={managerTimesheets}
+            processing={processing}
+            expandedGroups={expandedGroups}
+            expandedTimesheets={expandedTimesheets}
+            onToggleGroup={toggleGroup}
+            onToggleTimesheet={toggleTimesheet}
+            onApprove={handleApproval}
+            selectedMonth={selectedMonth}
+          />
         </div>
-      )}
-
-      <div className="space-y-6">
-        <PendingApprovals
-          timesheets={managerTimesheets}
-          processing={processing}
-          expandedGroups={expandedGroups}
-          expandedTimesheets={expandedTimesheets}
-          onToggleGroup={toggleGroup}
-          onToggleTimesheet={toggleTimesheet}
-          onApprove={handleApproval}
-          selectedMonth={selectedMonth}
-        />
-
-        <ApprovedTimesheets
-          timesheets={sortedApprovedTimesheets}
-          selectedTimesheets={selectedTimesheets}
-          expandedTimesheets={expandedTimesheets}
-          sortOption={sortOption}
-          onToggleTimesheet={toggleTimesheet}
-          onToggleSelect={(id) => {
-            setSelectedTimesheets(prev =>
-              prev.includes(id)
-                ? prev.filter(tid => tid !== id)
-                : [...prev, id]
-            );
-          }}
-          onSelectAll={(selected) => {
-            setSelectedTimesheets(
-              selected
-                ? sortedApprovedTimesheets.map(t => t.id)
-                : []
-            );
-          }}
-          onSort={handleSort}
-          onShowFilter={() => setShowFilterDialog(true)}
-          onDownload={downloadSelectedTimesheets}
-          onRevertStatus={handleRevertStatus}
-          selectedMonth={selectedMonth}
-        />
+        <div className="space-y-4">
+          <ApprovedTimesheets
+            timesheets={sortedApprovedTimesheets}
+            selectedTimesheets={selectedTimesheets}
+            expandedTimesheets={expandedTimesheets}
+            sortOption={sortOption}
+            onToggleTimesheet={toggleTimesheet}
+            onToggleSelect={(id) => {
+              setSelectedTimesheets(prev =>
+                prev.includes(id)
+                  ? prev.filter(tid => tid !== id)
+                  : [...prev, id]
+              );
+            }}
+            onSelectAll={(selected) => {
+              setSelectedTimesheets(
+                selected
+                  ? sortedApprovedTimesheets.map(t => t.id)
+                  : []
+              );
+            }}
+            onSort={handleSort}
+            onShowFilter={() => setShowFilterDialog(true)}
+            onDownload={downloadSelectedTimesheets}
+            onRevertStatus={handleRevertStatus}
+            selectedMonth={selectedMonth}
+          />
+        </div>
       </div>
 
       <FilterDialog

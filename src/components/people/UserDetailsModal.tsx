@@ -40,21 +40,21 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClos
   }, [user.id]);
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-6">
+      <div className="bg-white rounded-2xl w-full max-w-full sm:max-w-lg md:max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header - Fixed */}
-        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10 rounded-t-xl">
-          <h2 className="text-xl font-semibold text-gray-900">{user.full_name || user.username}</h2>
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{user.full_name || user.username}</h2>
           <button 
             onClick={onClose} 
             className="rounded-full p-2 hover:bg-gray-100 transition-colors"
           >
-            <X className="w-4 h-4 text-gray-500" />
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto p-6 flex-1">
+        <div className="overflow-y-auto p-4 sm:p-6 flex-1 flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Email</h3>

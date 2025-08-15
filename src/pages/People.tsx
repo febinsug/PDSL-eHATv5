@@ -439,23 +439,23 @@ export const People = () => {
   const employees = filteredUsers.filter(u => u.role === 'user');
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">People Management</h1>
-        <div className="flex gap-3">
+    <div className="space-y-8 p-4 sm:p-6 md:p-8 max-w-full w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <h1 className="text-3xl font-bold text-[#1732ca] drop-shadow-sm">People</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => {
               setEditingUser(null);
               setShowUserForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1732ca] to-blue-500 text-white rounded-xl shadow hover:from-[#1732ca]/90 hover:to-blue-500/90 transition"
           >
             <UserPlus className="w-5 h-5" />
             Add User
           </button>
           <button
             onClick={() => setShowDepartmentList(!showDepartmentList)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl shadow hover:bg-gray-200 transition"
           >
             <Building2 className="w-5 h-5" />
             {showDepartmentList ? 'Show Users' : 'Manage Departments'}
@@ -463,7 +463,7 @@ export const People = () => {
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative mb-6">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
         </div>
@@ -472,12 +472,12 @@ export const People = () => {
           placeholder={showDepartmentList ? "Search departments..." : "Search users..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-[#1732ca] focus:border-[#1732ca] text-sm"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl shadow focus:ring-[#1732ca] focus:border-[#1732ca] text-sm bg-white"
         />
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 flex items-center gap-2">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 flex items-center gap-2 shadow">
           <AlertCircle className="w-5 h-5" />
           <p>{error}</p>
         </div>
@@ -491,7 +491,7 @@ export const People = () => {
                 setEditingDepartment(null);
                 setShowDepartmentForm(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1732ca] to-blue-500 text-white rounded-xl shadow hover:from-[#1732ca]/90 hover:to-blue-500/90 transition"
             >
               <Building2 className="w-5 h-5" />
               Add Department
@@ -508,100 +508,90 @@ export const People = () => {
           />
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Managers Section */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Managers</h2>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-[#1732ca]/10 to-blue-100">
+              <h2 className="text-xl font-semibold text-[#1732ca]">Managers</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Manager
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Team Size
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Manager</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Team Size</th>
+                    <th className="px-6 py-3 text-right font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {managers.map(manager => (
-                    <tr key={manager.id} className="hover:bg-gray-50">
+                    <tr key={manager.id} className="hover:bg-blue-50/40 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
-                            <span className="text-[#1732ca] font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center shadow">
+                            <span className="text-[#1732ca] font-bold text-lg">
                               {(manager.full_name || manager.username)[0].toUpperCase()}
                             </span>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                          <div>
+                            <div className="font-semibold text-gray-900">
                               {manager.full_name || manager.username}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-xs text-gray-500">
                               {manager.designation || 'Manager'}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{manager.email || '-'}</div>
+                        <div className="text-gray-900">{manager.email || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-gray-900">
                           {departments.find(d => d.id === manager.department_id)?.name || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{manager.team?.length || 0} members</div>
+                        <div className="text-gray-900">{manager.team?.length || 0} members</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => {
                               setEditingUser(manager);
                               setShowUserForm(true);
                             }}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="Edit manager"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setSelectedManager(manager)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="View team members"
                           >
                             <Users className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setViewingProjects(manager)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="View active projects"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setViewingUserDetails(manager)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="View hours"
                           >
                             <Clock className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteUser(manager)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 p-2 rounded-lg bg-red-50"
                             title="Delete manager"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -623,61 +613,51 @@ export const People = () => {
           </div>
 
           {/* Employees Section */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Employees</h2>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-[#1732ca]/10 to-blue-100">
+              <h2 className="text-xl font-semibold text-[#1732ca]">Employees</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Manager
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Manager</th>
+                    <th className="px-6 py-3 text-right font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {employees.map(employee => (
-                    <tr key={employee.id} className="hover:bg-gray-50">
+                    <tr key={employee.id} className="hover:bg-blue-50/40 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
-                            <span className="text-[#1732ca] font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center shadow">
+                            <span className="text-[#1732ca] font-bold text-lg">
                               {(employee.full_name || employee.username)[0].toUpperCase()}
                             </span>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                          <div>
+                            <div className="font-semibold text-gray-900">
                               {employee.full_name || employee.username}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-xs text-gray-500">
                               {employee.designation || 'Employee'}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{employee.email || '-'}</div>
+                        <div className="text-gray-900">{employee.email || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-gray-900">
                           {departments.find(d => d.id === employee.department_id)?.name || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-gray-900">
                           {employee.manager ? (
                             employee.manager.full_name || employee.manager.username
                           ) : (
@@ -685,35 +665,35 @@ export const People = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => {
                               setEditingUser(employee);
                               setShowUserForm(true);
                             }}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="Edit employee"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setViewingProjects(employee)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="View active projects"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setViewingUserDetails(employee)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
+                            className="text-[#1732ca] hover:text-[#1732ca]/80 p-2 rounded-lg bg-blue-50"
                             title="View hours"
                           >
                             <Clock className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteUser(employee)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 p-2 rounded-lg bg-red-50"
                             title="Delete employee"
                           >
                             <Trash2 className="w-4 h-4" />
