@@ -1,3 +1,5 @@
+import { format } from "date-fns";
+
 export const isDateInSelectedMonth = (inputDate: Date, selectedMonth: any, selectedYear: any) => {
     const date = new Date(inputDate);
     return (
@@ -47,4 +49,18 @@ export const getWeekNumberRangeBetweenTwoDates = (start: Date, end: Date) => {
 
     return { dateRangeWeek: result, startDate: start, endDate: end };
 };
+
+export const getStartAndEndWeekNumbers = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0); // last date of the month
+    return {
+      startWeek: getWeekNumber(firstDayOfMonth),
+      endWeek: getWeekNumber(lastDayOfMonth),
+      year: date.getFullYear(),
+      yearMonth: year + "-" + format(date, "MM")
+    };
+  }
 

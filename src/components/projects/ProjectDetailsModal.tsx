@@ -6,7 +6,7 @@ import { format, subMonths, addMonths, startOfWeek, addDays } from 'date-fns';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
 import DateRangeSelector from '../shared/DateRangeSelector';
-import { getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
+import { getStartAndEndWeekNumbers, getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 interface ProjectDetailsModalProps {
   project: Project & {
@@ -193,23 +193,32 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         })
         if (project.users && project.users.length && project.users.length == 1) {
           // pie data when popup open for only one user, as project detail for a user
+          let h = project.allocated_hours - (project?.totalHoursUsed || 0)
+          if (h < 0) {
+            h = 0
+          }
           pieData.push(
             {
               name: "",
-              hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+              hours: h,
               color: PROJECT_COLORS[pieData.length]
             }
           )
         } else {
+          let h = project.allocated_hours - (project?.totalHoursUsed || 0)
+          // console.log(h, 'hhhhh')
+          if (h < 0) {
+            h = 0
+          }
           pieData.push(
             {
               name: "Pending",
-              hours: project.allocated_hours - (project?.totalHoursUsed || 0),
+              hours: h,
               color: PROJECT_COLORS[pieData.length]
             }
           )
         }
-
+        // console.log(pieData, 'pieData')
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -260,19 +269,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     // console.log(date, getStartAndEndWeekNumbers(date))
   }
 
-  const getStartAndEndWeekNumbers = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
 
-    const firstDayOfMonth = new Date(year, month, 1);
-    const lastDayOfMonth = new Date(year, month + 1, 0); // last date of the month
-    return {
-      startWeek: getWeekNumber(firstDayOfMonth),
-      endWeek: getWeekNumber(lastDayOfMonth),
-      year: date.getFullYear(),
-      yearMonth: year + "-" + format(date, "MM")
-    };
-  }
   const showAllClick = (val: string) => {
     setFetchDataType(val)
     if (val !== 'custom') {

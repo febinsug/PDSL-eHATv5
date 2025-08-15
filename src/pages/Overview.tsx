@@ -679,7 +679,7 @@ export const Overview = () => {
             colors={[COLORS.blue1]}
             selectedMonth={selectedMonth}
           />
-          <ProjectDistribution data={projectHours} />
+          <ProjectDistribution data={projectHours} title='Hours by Project'/>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -690,7 +690,7 @@ export const Overview = () => {
               colors={PROJECT_COLORS}
               selectedMonth={selectedMonth}
             />
-            <ProjectDistribution data={projectHours} />
+            <ProjectDistribution data={projectHours} title='Hours by Project'/>
           </div>
           <div className="space-y-6">
             <ProjectUtilization
