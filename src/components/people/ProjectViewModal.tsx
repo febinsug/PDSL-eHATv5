@@ -4,12 +4,12 @@ import type { User, Project } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { ProjectDetailsModal } from '../projects/ProjectDetailsModal';
 import { addMonths, format, subMonths } from 'date-fns';
-import { getStartAndEndWeekNumbers, getWeekNumberRangeBetweenTwoDates } from '../../utils/common';
+import { getMonthStartEnd, getStartAndEndWeekNumbers, getWeekNumberRangeBetweenTwoDates } from '../../utils/common';
 import DateRangeSelector from '../shared/DateRangeSelector';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
-
+import { exportProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
 interface ProjectViewModalProps {
   user: User & { projects?: Project[] };
   onClose: () => void;
@@ -24,6 +24,7 @@ type ProjectData = {
   client_id: string
   completed_at: string
   status: string
+  timeSheetForProject: any[]
   assigned_at?: string
 }
 
@@ -155,7 +156,8 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
               client_id: row.projects.client_id,
               total_hours: 0,
               status: row.projects.status,
-              completed_at: row.projects.completed_at
+              completed_at: row.projects.completed_at,
+              timeSheetForProject: timesheetData.filter(item => item.project_id === row.project_id)
             }
           }
           acc[key].total_hours += row.total_hours
@@ -163,7 +165,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
         }, {} as Record<string, ProjectData>)
       ) as ProjectData[]
 
-      console.log(groupedArray, 'timesheetsData', timesheetData)
+      // console.log(groupedArray, 'timesheetsData', timesheetData)
       projectList.map((k: any) => {
         if (k.project_id && !groupedArray.find((p: any) => p.id === k.project_id)) {
           groupedArray.push({
@@ -175,6 +177,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
             total_hours: 0,
             status: k.projects?.status || 'Not started',
             completed_at: k.projects?.completed_at || '',
+            timeSheetForProject: [],
             assigned_at: k.assigned_at || ''
           })
         } else {
@@ -184,6 +187,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           }
         }
       })
+      console.log(JSON.stringify(groupedArray), 'groupedArray')
       if (groupedArray && groupedArray.length) {
         setProjectArr(groupedArray)
         let pieData: any = []
@@ -218,7 +222,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
     }
   };
   const onSelectProject = async (project: any) => {
-    console.log(project, user)
+    // console.log(project, user)
 
     const { data, error } = await supabase
       .from('clients')
@@ -231,7 +235,15 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       return;
     }
 
-    console.log(data)
+    // Fetch total hours used for this project
+    const { data: timesheets } = await supabase
+      .from('timesheets')
+      .select('total_hours')
+      .eq('project_id', project.id)
+      .neq('status', 'rejected');
+
+    const totalHoursUsed = timesheets?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
+
     let obj = {
       allocated_hours: project.allocated_hours,
       client_id: project.client_id,
@@ -242,11 +254,15 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       id: project.id,
       name: project.name,
       status: project.status,
-      totalHoursUsed: project.total_hours,
+      totalHoursUsed: totalHoursUsed,
       users: [user],
       client: data
     }
+
+
     setSelectedProject(obj)
+
+
     console.log(obj, 'obj')
   }
   const showAllClick = (val: string) => {
@@ -279,7 +295,20 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
     // fetchUserHours(getStartAndEndWeekNumbers(date));
     fetchUserDetailedHours(user, getStartAndEndWeekNumbers(date))
   }
-
+  const exportExcel = () => {
+    let dateRange = {
+      start: "All",
+      end: "Data"
+    };
+    if (fetchDataType === 'monthly') {
+      dateRange.start = format(getMonthStartEnd(selectedMonth).start, 'yyyy-MM-dd');
+      dateRange.end = format(getMonthStartEnd(selectedMonth).end, 'yyyy-MM-dd');
+    } else if (fetchDataType === 'custom') {
+      dateRange.start = format(customDate.start, 'yyyy-MM-dd');
+      dateRange.end = format(customDate.end, 'yyyy-MM-dd');
+    }
+    exportProjectsToExcel(projectArr, "Sachin_Gupta", dateRange)
+  }
   return (
 
 
@@ -294,6 +323,13 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
             </div>
             <div className="flex items-center gap-2 min-w-[220px] justify-end">
               <div className="flex flex-col sm:flex-row gap-3">
+                {/* <button
+                  onClick={() => exportExcel()}
+                  className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
+
+                >
+                  {'Export Data in Excel'}
+                </button> */}
                 <button
                   onClick={() => showAllClick('all')}
                   className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
@@ -363,23 +399,23 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
             <div className="w-1/2 overflow-y-auto p-1 space-y-4">
               {projectArr && projectArr.length > 0 ? (
                 projectArr.map((project: any) => (
-                    <div
-                      onClick={(e) => {
-                        if ((e.target as HTMLElement).closest('button')) return;
-                        onSelectProject(project);
-                      }}
-                      key={project.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-[#1732ca10] cursor-pointer">
-                      <div>
-                        <p className="font-medium text-gray-900">{project.name}</p>
-                        <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
-                        <p className="text-sm text-gray-500">Assigned On: {format(project.assigned_at, "dd MMM yyyy")}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">Total Hours: {project.total_hours} hr</p>
-                        <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours} hr</p>
-                      </div>
+                  <div
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('button')) return;
+                      onSelectProject(project);
+                    }}
+                    key={project.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-[#1732ca10] cursor-pointer">
+                    <div>
+                      <p className="font-medium text-gray-900">{project.name}</p>
+                      <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
+                      <p className="text-sm text-gray-500">Assigned On: {format(project.assigned_at, "dd MMM yyyy")}</p>
                     </div>
-                  ))
+                    <div className="text-right">
+                      <p className="font-medium">Total Hours: {project.total_hours} hr</p>
+                      <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours} hr</p>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <p className="text-gray-500 text-center py-4">No projects assigned</p>
               )}
@@ -400,12 +436,15 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           />
         )}
       </div>
-      {selectedProject && (
+      {selectedProject ? (
         <ProjectDetailsModal
           project={selectedProject}
           onClose={() => setSelectedProject(null)}
+          fetchDataTypeFromLast={fetchDataType || 'all'}
+          selectedMonthFromLast={selectedMonth}
+          customDateFromLast={customDate}
         />
-      )}
+      ) : null}
     </div>
   );
 };

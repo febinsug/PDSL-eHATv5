@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Project, User as UserType } from '../../types';
@@ -14,6 +14,9 @@ interface ProjectDetailsModalProps {
     totalHoursUsed?: number
   };
   onClose: () => void;
+  fetchDataTypeFromLast?: string; // 'all' / 'monthly' / 'custom'
+  selectedMonthFromLast?: Date; // Optional prop to set the initial month
+  customDateFromLast?: { start: Date; end: Date }; // Optional prop for custom date range
 }
 
 interface UserWithHours extends UserType {
@@ -23,18 +26,18 @@ interface UserWithHours extends UserType {
 
 
 
-export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ project, onClose }) => {
+export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ project, onClose, fetchDataTypeFromLast, selectedMonthFromLast, customDateFromLast }) => {
   const [loading, setLoading] = useState(true);
   const [usersWithHours, setUsersWithHours] = useState<UserWithHours[]>([]);
 
   // State for expanded users and expanded weeks By Sachin
   const [expandedUsers, setExpandedUsers] = useState<string[]>([]);
   const [expandedWeeks, setExpandedWeeks] = useState<{ [userId: string]: number[] }>({});
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(selectedMonthFromLast ? new Date(selectedMonthFromLast) : new Date());
   const [monthlyHourUsed, setMonthlyHourUsed] = useState(0);
-  const [fetchDataType, setFetchDataType] = useState('all'); // 'all' / 'monthly' / 'custom'
+  const [fetchDataType, setFetchDataType] = useState(fetchDataTypeFromLast || 'all'); // 'all' / 'monthly' / 'custom'//fetchDataTypeFromLast || 'all'
   const [pieChartData, setPieChartData] = useState([])
-  const [customDate, setCustomDate] = useState({ start: new Date(), end: new Date() });
+  const [customDate, setCustomDate] = useState(customDateFromLast || { start: new Date(), end: new Date() });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const weekArr = [
@@ -67,14 +70,23 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const utilization = project.totalHoursUsed
     ? (project.totalHoursUsed / project.allocated_hours) * 100
     : 0;
-
+  const hasRun = useRef(false);
   useEffect(() => {
+    if (hasRun.current) return; // exit if already run
+    hasRun.current = true;
+    // console.log(fetchDataTypeFromLast, selectedMonthFromLast, customDateFromLast, fetchDataType, "project")
+    if (fetchDataType === 'all') {
+      fetchUserHours({}, fetchDataType);
+    } else if (fetchDataType === 'monthly') {
+      onMonthChange(selectedMonth,fetchDataType);
+    } else if (fetchDataType === 'custom') {
+      fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(customDate.start), new Date(customDate.end)), fetchDataType);
+    }
 
-    // console.log(project, "project")
-    fetchUserHours({});
-  }, [project.id, project.users]);
+  }, []);
+  // }, [project.id, project.users]);
 
-  const fetchUserHours = async (filter: any) => {
+  const fetchUserHours = async (filter: any, fetchDataTypeObj: any) => {
     try {
       if (!project.users || project.users.length === 0) {
         setLoading(false);
@@ -123,12 +135,10 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         let timesheetData = timesheetDataFromDB
 
 
-        // console.log(timesheetData, 'timesheetData', fetchDataType)
-        if (fetchDataType === 'monthly' && filter.year && filter.yearMonth) {
+        if (fetchDataTypeObj === 'monthly' && filter.year && filter.yearMonth) {
           const newTimeSheet: any = []
           timesheetDataFromDB?.map((tim: any) => {
             const timData = { ...tim }
-            // console.log(tim.month_hours, filter.yearMonth, tim.month_hours[filter.yearMonth], 'tim====')
             if (tim.month_hours && tim.month_hours[filter.yearMonth]) {
               timData.total_hours = tim.month_hours[filter.yearMonth].monday_hours + tim.month_hours[filter.yearMonth].tuesday_hours + tim.month_hours[filter.yearMonth].wednesday_hours + tim.month_hours[filter.yearMonth].thursday_hours + tim.month_hours[filter.yearMonth].friday_hours
               timData.monday_hours = tim.month_hours[filter.yearMonth].monday_hours
@@ -139,16 +149,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
               timData.month_hours = { [filter.yearMonth]: tim.month_hours[filter.yearMonth] }
               newTimeSheet.push(timData)
             }
-            // console.log(timData, 'timData')
           })
-          // console.log(newTimeSheet, 'newTimeSheet')
           timesheetData = newTimeSheet
         }
-        if (fetchDataType === 'custom') {
-          // console.log(filter)
+        if (fetchDataTypeObj === 'custom') {
           timesheetData = await filterTimesheetsByDateRange(timesheetDataFromDB || [], format(new Date(filter.startDate), 'yyyy-MM-dd'), format(new Date(filter.endDate), 'yyyy-MM-dd'))
-          // console.log(JSON.stringify(timesheetData))
-          // console.log(timesheetData, 'timesheetData after filter')
+
         }
 
 
@@ -159,7 +165,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
         let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
         setMonthlyHourUsed(monthly_hour_used)
-        // console.log(monthlyHourUsed, 'monthlyHourUsed')
         const userHoursMap: Record<string, number> = {};
         timesheetData?.forEach(timesheet => {
           const userId = timesheet.user_id;
@@ -178,7 +183,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             timeSheetData: userTimesheets
           };
         });
-        // console.log(enhancedUsers, 'enhancedUsers')
         // Sort users by hours used (descending)
         enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
         let pieData: any = []
@@ -201,15 +205,15 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           n = 'Other'
 
         }
-        if (fetchDataType != 'all') {
-          pieData.push(
-            {
-              name: 'Used',
-              hours: project?.totalHoursUsed || 0,
-              color: PROJECT_COLORS[pieData.length]
-            }
-          )
-        }
+        // if (fetchDataTypeObj != 'all') {
+        //   pieData.push(
+        //     {
+        //       name: 'Used',
+        //       hours: project?.totalHoursUsed || 0,
+        //       color: PROJECT_COLORS[pieData.length]
+        //     }
+        //   )
+        // }
         pieData.push(
           {
             name: n,
@@ -217,7 +221,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             color: PROJECT_COLORS[pieData.length]
           }
         )
-        // console.log(pieData, 'pieData')
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -262,10 +265,10 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       default: return n + 'th';
     }
   };
-  const onMonthChange = (date: any) => {
+  const onMonthChange = (date: any,fetchDataTypeObj:any) => {
+    console.log('onMonthChange')
     setSelectedMonth(date)
-    fetchUserHours(getStartAndEndWeekNumbers(date));
-    // console.log(date, getStartAndEndWeekNumbers(date))
+    fetchUserHours(getStartAndEndWeekNumbers(date), fetchDataTypeObj);
   }
 
 
@@ -274,26 +277,19 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     if (val !== 'custom') {
       setCustomDate({ start: new Date(), end: new Date() });
     }
-    setRefresh((r) => r + 1);  // increment to trigger effect
-  }
-  useEffect(() => {
-    if (fetchDataType === 'all') {
-      fetchUserHours({});
-    } else if (fetchDataType === 'monthly') {
-      onMonthChange(new Date())
-    } else if (fetchDataType === 'custom') {
-      // const { startWeek, endWeek, year } = getStartAndEndWeekNumbers(selectedMonth);
-      // fetchUserHours({ startWeek, endWeek, year });
+    if (val === 'all') {
+      fetchUserHours({}, val);
+    } else if (val === 'monthly') {
+      onMonthChange(new Date(),val)
+    } else if (val === 'custom') {
       setShowDatePicker(true)
     }
-  }, [fetchDataType, refresh]);
+  }
+
   const handleDateRange = (start: any, end: any) => {
     setShowDatePicker(false)
     setCustomDate({ start: start, end: end })
-    // console.log("Selected Start Date:", start);
-    // console.log("Selected End Date:", end);
-    // console.log("getWeekDateRangeBetweenTwoDates", JSON.stringify(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end))));
-    fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
+    fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)), fetchDataType);
 
 
     // Your filter logic here
@@ -331,7 +327,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             {fetchDataType == 'monthly' &&
               <>
                 <button
-                  onClick={() => onMonthChange(subMonths(selectedMonth, 1))}
+                  onClick={() => onMonthChange(subMonths(selectedMonth, 1),fetchDataType)}
                   className="p-1.5 hover:bg-gray-100 rounded-full"
                 >
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -340,7 +336,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                   {format(selectedMonth, 'MMMM yyyy')}
                 </span>
                 <button
-                  onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
+                  onClick={() => onMonthChange(addMonths(selectedMonth, 1),fetchDataType)}
                   className="p-1.5 hover:bg-gray-100 rounded-full"
                 >
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>

@@ -57,10 +57,22 @@ export const getStartAndEndWeekNumbers = (date: Date) => {
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0); // last date of the month
     return {
-      startWeek: getWeekNumber(firstDayOfMonth),
-      endWeek: getWeekNumber(lastDayOfMonth),
-      year: date.getFullYear(),
-      yearMonth: year + "-" + format(date, "MM")
+        startWeek: getWeekNumber(firstDayOfMonth),
+        endWeek: getWeekNumber(lastDayOfMonth),
+        year: date.getFullYear(),
+        yearMonth: year + "-" + format(date, "MM")
     };
-  }
+}
+
+export const getMonthStartEnd = (date: any) => {
+    const d = new Date(date);
+
+    // Start of month
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+
+    // End of month
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0); // 0 gives the last day of previous month
+
+    return { start, end };
+}
 

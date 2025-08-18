@@ -42,7 +42,7 @@ const renderCustomizedLabel = (props: any) => {
 export const ProjectDistribution: React.FC<ProjectDistributionProps> = ({ data, title, hideOutline }) => {
   // Sort data by hours descending
   const sortedData = [...data].sort((a, b) => b.hours - a.hours);
-  console.log(sortedData, 'pie data on pie chart')
+  // console.log(sortedData, 'pie data on pie chart')
   return (
     <div className={`bg-white p-6 ${hideOutline ? '' : 'rounded-lg shadow'}`}>
       {title &&
