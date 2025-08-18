@@ -9,7 +9,9 @@ export interface User {
   manager_id: string | null;
   department_id: string | null;
   designation: string | null;
-  password_hash: string | null
+  password_hash: string | null;
+  department: any;
+  manager?: any;
 }
 
 export interface Department {
