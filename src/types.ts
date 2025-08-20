@@ -41,6 +41,7 @@ export interface Timesheet {
   rejection_reason?: string | null;
   month_hours?: Record<string, MonthEntry> | null;
   is_split_week?: boolean | null;
+  project:any;
 }
 
 export interface TimesheetWithDetails extends Timesheet {
