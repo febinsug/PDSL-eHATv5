@@ -6,9 +6,10 @@ import { format, subMonths, addMonths, startOfWeek, addDays } from 'date-fns';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
 import DateRangeSelector from '../shared/DateRangeSelector';
-import { getStartAndEndWeekNumbers, getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
+import { getMonthStartEnd, getStartAndEndWeekNumbers, getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 import { createClient } from '@supabase/supabase-js';
+import { exportProjectTimesheetByUsersToExcel } from '../../utils/exportProjectTimesheetByUsers';
 interface ProjectDetailsModalProps {
   project: Project & {
     users?: UserType[],
@@ -23,6 +24,11 @@ interface ProjectDetailsModalProps {
 interface UserWithHours extends UserType {
   hoursUsed: number;
   timeSheetData: any;
+  id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  designation: string;
 }
 
 
@@ -157,13 +163,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           timesheetData = await filterTimesheetsByDateRange(timesheetDataFromDB || [], format(new Date(filter.startDate), 'yyyy-MM-dd'), format(new Date(filter.endDate), 'yyyy-MM-dd'))
 
         }
-
-
-
-
-
-
-
         let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
         setMonthlyHourUsed(monthly_hour_used)
         const userHoursMap: Record<string, number> = {};
@@ -174,7 +173,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
 
 
-        const enhancedUsers = project?.users?.map(user => {
+        const enhancedUsers: any = project?.users?.map(user => {
           const userTimesheets = (timesheetData?.filter((u) => u.user_id === user.id) || [])
             .sort((a, b) => b.week_number - a.week_number);
 
@@ -185,9 +184,9 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           };
         });
         // Sort users by hours used (descending)
-        enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
+        enhancedUsers?.sort((a: any, b: any) => b.hoursUsed - a.hoursUsed);
         let pieData: any = []
-        enhancedUsers?.map((l, ind) => {
+        enhancedUsers?.map((l: any, ind: any) => {
           pieData.push(
             {
               name: l.full_name,
@@ -206,15 +205,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           n = 'Other'
 
         }
-        // if (fetchDataTypeObj != 'all') {
-        //   pieData.push(
-        //     {
-        //       name: 'Used',
-        //       hours: project?.totalHoursUsed || 0,
-        //       color: PROJECT_COLORS[pieData.length]
-        //     }
-        //   )
-        // }
+
         pieData.push(
           {
             name: n,
@@ -222,6 +213,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             color: PROJECT_COLORS[pieData.length]
           }
         )
+        console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -319,7 +311,20 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       return null;
     }
   }
-
+  const exportExcel = () => {
+    let dateRange = {
+      start: "All",
+      end: "Data"
+    };
+    if (fetchDataType === 'monthly') {
+      dateRange.start = format(getMonthStartEnd(selectedMonth).start, 'yyyy-MM-dd');
+      dateRange.end = format(getMonthStartEnd(selectedMonth).end, 'yyyy-MM-dd');
+    } else if (fetchDataType === 'custom') {
+      dateRange.start = format(customDate.start, 'yyyy-MM-dd');
+      dateRange.end = format(customDate.end, 'yyyy-MM-dd');
+    }
+    exportProjectTimesheetByUsersToExcel(usersWithHours, project, dateRange)
+  }
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-normal justify-center p-4">
       <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
@@ -391,11 +396,19 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         {/* Scrollable Content */}
         <div className="overflow-y-auto p-6 flex-1">
           {/* Project Details */}
-          <div className="mb-6">
-            <p className="text-sm text-gray-500 mb-2">Description</p>
-            <p className="text-gray-900">{project.description || 'No description provided'}</p>
+          <div className="mb-4 sticky w-full flex items-center justify-between ">
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-2">Description</p>
+              <p className="text-gray-900">{project.description || 'No description provided'}</p>
+            </div>
+            {(fetchDataType == 'all' && project && (project.totalHoursUsed || 0) > 0) || (fetchDataType != 'all' && monthlyHourUsed > 0) ?
+              <button
+                onClick={() => exportExcel()}
+                className={`flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] border rounded-lg text-white hover:bg-[#1732ca]/90`} >
+                {'Export Data in Excel'}
+              </button>
+              : null}
           </div>
-
           {/* Stats Cards */}
           <div className={`grid ${fetchDataType == 'all' ? 'grid-cols-3' : 'grid-cols-4'} gap-4 mb-8`}>
             <div className="bg-gray-50 rounded-lg p-4">

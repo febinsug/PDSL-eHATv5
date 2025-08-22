@@ -4,8 +4,7 @@ import * as XLSX from "xlsx-js-style";
 
 import { saveAs } from "file-saver";
 
-// This excel is for when we export whole user where we get all the projects and their timesheet for a particular user
-
+// This excel is for when we export whole projects where we get all the users and their timesheet for a particular project
 interface MonthHours {
   status: string;
   approved_at: string | null;
@@ -28,30 +27,35 @@ interface TimeSheet {
   month_hours: Record<string, MonthHours>;
 }
 
-interface Project {
+interface Users {
   id: string;
-  name: string;
-  allocated_hours: number;
-  total_hours: number;
-  timeSheetForProject: TimeSheet[];
+  full_name: string;
+  username: string;
+  email: string;
+  designation: string;
+  hoursUsed: number;
+  timeSheetData: TimeSheet[];
 }
 
-export const exportUserTimesheetByProjectsToExcel = (
-  projects: Project[],
-  user: any,
+export const exportProjectTimesheetByUsersToExcel = (
+  users: Users[],
+  project: any,
   dateRange: { start: string; end: string }
 ) => {
   const workbook = XLSX.utils.book_new();
 
-  projects.forEach((project) => {
+  users.forEach((user) => {
     const sheetData: any[] = [];
 
     // Project info
+    sheetData.push(["Project Name", project.name]);
+    sheetData.push(["Project ID", project.id]);
     sheetData.push(["Name", user.full_name || user.username]);
     sheetData.push(["Email", user.email || ""]);
-    sheetData.push(["Project ID", project.id]);
-    sheetData.push(["Project Name", project.name]);
-    sheetData.push(["Total Hours", (project.total_hours + ' hrs')]);
+    sheetData.push(["designation", user.designation || ""]);
+
+
+    sheetData.push(["Total Hours", (user.hoursUsed + ' hrs')]);
     sheetData.push([]); // empty row
 
     // Headers
@@ -60,7 +64,7 @@ export const exportUserTimesheetByProjectsToExcel = (
     const mergedWeeks: { [key: number]: any } = {}; // To store merged week data
 
     // Populate timesheet rows
-    project.timeSheetForProject.forEach((ts) => {
+    user.timeSheetData.forEach((ts:any) => {
       Object.keys(ts.month_hours).forEach((monthKey) => {
         const mh = ts.month_hours[monthKey];
 
@@ -151,12 +155,12 @@ export const exportUserTimesheetByProjectsToExcel = (
         if (!cell) continue;
 
         // Bold labels (first column in project info)
-        if (R >= 0 && R <= 4 && C === 0) {
+        if (R >= 0 && R <= 5 && C === 0) {
           cell.s = { font: { bold: true } };
         }
 
         // Header row (row index 6, since 0-based)
-        if (R === 6) {
+        if (R === 7) {
           cell.s = {
             font: { bold: true, color: { rgb: "FFFFFF" } },
             fill: { fgColor: { rgb: "4472C4" } },
@@ -210,12 +214,12 @@ export const exportUserTimesheetByProjectsToExcel = (
     worksheet["!cols"] = colWidths.map((w) => ({ wch: w }));
 
     // style done
-    XLSX.utils.book_append_sheet(workbook, worksheet, project.name.substring(0, 31));
+    XLSX.utils.book_append_sheet(workbook, worksheet, (user.full_name.substring(0, 31)||user.username.substring(0,31)));
   });
 
   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-  saveAs(blob, `${user.full_name || user.username}_${dateRange.start}_${dateRange.end}_${new Date().getTime()}.xlsx`);
+  saveAs(blob, `${project.name}_${dateRange.start}_${dateRange.end}_${new Date().getTime()}.xlsx`);
 };
 
 // UTC-safe ISO week Monday calculation

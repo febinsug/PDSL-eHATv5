@@ -9,7 +9,7 @@ import DateRangeSelector from '../shared/DateRangeSelector';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
-import { exportProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
+import { exportUserTimesheetByProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
 interface ProjectViewModalProps {
   user: User & { projects?: Project[] };
   onClose: () => void;
@@ -307,7 +307,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       dateRange.start = format(customDate.start, 'yyyy-MM-dd');
       dateRange.end = format(customDate.end, 'yyyy-MM-dd');
     }
-    exportProjectsToExcel(projectArr, user, dateRange)
+    exportUserTimesheetByProjectsToExcel(projectArr, user, dateRange)
   }
   return (
 
