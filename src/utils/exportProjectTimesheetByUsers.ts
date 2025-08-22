@@ -52,7 +52,7 @@ export const exportProjectTimesheetByUsersToExcel = (
     sheetData.push(["Project ID", project.id]);
     sheetData.push(["Name", user.full_name || user.username]);
     sheetData.push(["Email", user.email || ""]);
-    sheetData.push(["designation", user.designation || ""]);
+    sheetData.push(["Designation", user.designation || ""]);
 
 
     sheetData.push(["Total Hours", (user.hoursUsed + ' hrs')]);
