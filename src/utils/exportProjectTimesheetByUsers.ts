@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx-js-style";
 
 import { saveAs } from "file-saver";
+import { format, isValid } from "date-fns";
 
 // This excel is for when we export whole projects where we get all the users and their timesheet for a particular project
 interface MonthHours {
@@ -64,7 +65,7 @@ export const exportProjectTimesheetByUsersToExcel = (
     const mergedWeeks: { [key: number]: any } = {}; // To store merged week data
 
     // Populate timesheet rows
-    user.timeSheetData.forEach((ts:any) => {
+    user.timeSheetData.forEach((ts: any) => {
       Object.keys(ts.month_hours).forEach((monthKey) => {
         const mh = ts.month_hours[monthKey];
 
@@ -214,12 +215,15 @@ export const exportProjectTimesheetByUsersToExcel = (
     worksheet["!cols"] = colWidths.map((w) => ({ wch: w }));
 
     // style done
-    XLSX.utils.book_append_sheet(workbook, worksheet, (user.full_name.substring(0, 31)||user.username.substring(0,31)));
+    XLSX.utils.book_append_sheet(workbook, worksheet, (user.full_name.substring(0, 31) || user.username.substring(0, 31)));
   });
 
   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-  saveAs(blob, `${project.name}_${dateRange.start}_${dateRange.end}_${new Date().getTime()}.xlsx`);
+  // saveAs(blob, `${project.name}_${dateRange.start}_${dateRange.end}_${new Date().getTime()}.xlsx`);
+
+  saveAs(blob, `${project.name}-${isValid(new Date(dateRange.start)) ? format(new Date(dateRange.start), 'dd-MMM-yy') : dateRange.start} ${isValid(new Date(dateRange.start)) ? 'to ' : ""}${isValid(new Date(dateRange.end)) ? format(new Date(dateRange.end), 'dd-MMM-yy') : dateRange.end} (${format(new Date(), 'ddMMyy:HHmmss')}).xlsx`);
+
 };
 
 // UTC-safe ISO week Monday calculation

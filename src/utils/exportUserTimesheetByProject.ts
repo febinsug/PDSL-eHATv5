@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx-js-style";
 
 import { saveAs } from "file-saver";
+import { format, isValid } from "date-fns";
 
 // This excel is for when we export whole user where we get all the projects and their timesheet for a particular user
 
@@ -215,7 +216,7 @@ export const exportUserTimesheetByProjectsToExcel = (
 
   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-  saveAs(blob, `${user.full_name || user.username}_${dateRange.start}_${dateRange.end}_${new Date().getTime()}.xlsx`);
+  saveAs(blob, `${user.full_name || user.username}-${isValid(new Date(dateRange.start)) ? format(new Date(dateRange.start), 'dd-MMM-yy') : dateRange.start} ${isValid(new Date(dateRange.start)) ? 'to ' : ""}${isValid(new Date(dateRange.end)) ? format(new Date(dateRange.end), 'dd-MMM-yy') : dateRange.end} (${format(new Date(), 'ddMMyy:HHmmss')}).xlsx`);
 };
 
 // UTC-safe ISO week Monday calculation
