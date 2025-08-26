@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Settings as SettingsIcon, Lock, AlertCircle, Loader2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseKey, supabaseUrl } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 
 interface ConfirmationDialog {
@@ -127,6 +127,8 @@ export const Settings = () => {
   };
 
   const handleSendTestEmail = async () => {
+    // sendEmail();
+    // return
     setLoading(true);
     setMessage({ type: '', text: '' });
     try {
@@ -136,7 +138,7 @@ export const Settings = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          to: 'kdanam@pdsl.com',
+          to: 'sachin@cqs.in',
           subject: 'eHAT SMTP TestinG',
           text: 'Hi Karthik',
         }),
@@ -155,6 +157,33 @@ export const Settings = () => {
       setLoading(false);
     }
   };
+
+  const sendEmail = async () => {
+    try {
+
+      fetch(`${supabaseUrl}/functions/v1/send-email-v2`, {
+        method: 'POST',  // HTTP method POST
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,  // Your Authorization Bearer token
+          'Content-Type': 'application/json',  // Content type of the request body
+        },
+        body: JSON.stringify({
+          to: 'sachin@cqs.in'
+        })  // JSON body with the email
+      })
+        .then(response => response.json())  // Parse the response as JSON
+        .then(data => {
+          console.log('Success:', data);  // Log the success data
+        })
+        .catch(error => {
+          console.error('Error:', error);  // Log any errors that occur
+        });
+
+    } catch (error) {
+      console.error('Error fetching detailed user hours:', error);
+      return null;
+    }
+  }
 
   if (!user) {
     return (

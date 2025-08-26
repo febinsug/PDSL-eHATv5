@@ -9,7 +9,7 @@ import DateRangeSelector from '../shared/DateRangeSelector';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
-import { exportProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
+import { exportUserTimesheetByProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
 interface ProjectViewModalProps {
   user: User & { projects?: Project[] };
   onClose: () => void;
@@ -307,7 +307,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       dateRange.start = format(customDate.start, 'yyyy-MM-dd');
       dateRange.end = format(customDate.end, 'yyyy-MM-dd');
     }
-    exportProjectsToExcel(projectArr, "Sachin_Gupta", dateRange)
+    exportUserTimesheetByProjectsToExcel(projectArr, user, dateRange)
   }
   return (
 
@@ -323,13 +323,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
             </div>
             <div className="flex items-center gap-2 min-w-[220px] justify-end">
               <div className="flex flex-col sm:flex-row gap-3">
-                {/* <button
-                  onClick={() => exportExcel()}
-                  className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
 
-                >
-                  {'Export Data in Excel'}
-                </button> */}
                 <button
                   onClick={() => showAllClick('all')}
                   className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
@@ -384,15 +378,28 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
 
           </div>
           {/* Header - Fixed */}
-          <div className="flex items-center justify-between mb-4 sticky w-1/2">
-            <h4 className="text-m font-medium text-gray-700 mb-3">Total Projects Assigned : {projectArr && projectArr.length || 0}</h4>
+          <div className="mb-4 sticky w-full flex items-center justify-between ">
+            <div className='flex items-center justify-between w-1/2'>
+              <h4 className="text-m font-medium text-gray-700 mb-3">Total Projects Assigned : {projectArr && projectArr.length || 0}</h4>
 
-            {projectArr && projectArr.length &&
-              <h4 className="text-m font-medium text-gray-700 mb-3">Total hours: {projectArr.reduce(
-                (sum, item) => sum + item.total_hours,
-                0
-              )} hr</h4>
+              {projectArr && projectArr.length &&
+                <h4 className="text-m font-medium text-gray-700 mb-3">Total hours: {projectArr.reduce(
+                  (sum, item) => sum + item.total_hours,
+                  0
+                )} hr</h4>
+              }
+            </div>
+            {projectArr.reduce(
+              (sum, item) => sum + item.total_hours,
+              0
+            ) > 0 &&
+              <button
+                onClick={() => exportExcel()}
+                className={`flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] border rounded-lg text-white hover:bg-[#1732ca]/90`} >
+                {'Export Data in Excel'}
+              </button>
             }
+
           </div>
           <div className="flex flex-1 overflow-hidden">
             {/* Scrollable Content */}
@@ -421,6 +428,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
               )}
             </div>
             <div className="w-1/2 p-1 overflow-y-auto">
+
               <ProjectDistribution data={pieChartData} title={""} hideOutline={true} />
             </div>
           </div>

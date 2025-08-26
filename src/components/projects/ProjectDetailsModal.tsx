@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseKey, supabaseUrl } from '../../lib/supabase';
 import type { Project, User as UserType } from '../../types';
 import { format, subMonths, addMonths, startOfWeek, addDays } from 'date-fns';
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
 import DateRangeSelector from '../shared/DateRangeSelector';
-import { getStartAndEndWeekNumbers, getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
+import { getMonthStartEnd, getStartAndEndWeekNumbers, getWeekNumber, getWeekNumberRangeBetweenTwoDates, isDateInSelectedMonth } from '../../utils/common';
 import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRange';
+import { createClient } from '@supabase/supabase-js';
+import { exportProjectTimesheetByUsersToExcel } from '../../utils/exportProjectTimesheetByUsers';
 interface ProjectDetailsModalProps {
   project: Project & {
     users?: UserType[],
@@ -22,6 +24,11 @@ interface ProjectDetailsModalProps {
 interface UserWithHours extends UserType {
   hoursUsed: number;
   timeSheetData: any;
+  id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  designation: string;
 }
 
 
@@ -78,7 +85,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     if (fetchDataType === 'all') {
       fetchUserHours({}, fetchDataType);
     } else if (fetchDataType === 'monthly') {
-      onMonthChange(selectedMonth,fetchDataType);
+      onMonthChange(selectedMonth, fetchDataType);
     } else if (fetchDataType === 'custom') {
       fetchUserHours(getWeekNumberRangeBetweenTwoDates(new Date(customDate.start), new Date(customDate.end)), fetchDataType);
     }
@@ -156,13 +163,6 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           timesheetData = await filterTimesheetsByDateRange(timesheetDataFromDB || [], format(new Date(filter.startDate), 'yyyy-MM-dd'), format(new Date(filter.endDate), 'yyyy-MM-dd'))
 
         }
-
-
-
-
-
-
-
         let monthly_hour_used = timesheetData?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
         setMonthlyHourUsed(monthly_hour_used)
         const userHoursMap: Record<string, number> = {};
@@ -173,7 +173,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
 
 
-        const enhancedUsers = project?.users?.map(user => {
+        const enhancedUsers: any = project?.users?.map(user => {
           const userTimesheets = (timesheetData?.filter((u) => u.user_id === user.id) || [])
             .sort((a, b) => b.week_number - a.week_number);
 
@@ -184,9 +184,9 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           };
         });
         // Sort users by hours used (descending)
-        enhancedUsers?.sort((a, b) => b.hoursUsed - a.hoursUsed);
+        enhancedUsers?.sort((a: any, b: any) => b.hoursUsed - a.hoursUsed);
         let pieData: any = []
-        enhancedUsers?.map((l, ind) => {
+        enhancedUsers?.map((l: any, ind: any) => {
           pieData.push(
             {
               name: l.full_name,
@@ -205,15 +205,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           n = 'Other'
 
         }
-        // if (fetchDataTypeObj != 'all') {
-        //   pieData.push(
-        //     {
-        //       name: 'Used',
-        //       hours: project?.totalHoursUsed || 0,
-        //       color: PROJECT_COLORS[pieData.length]
-        //     }
-        //   )
-        // }
+
         pieData.push(
           {
             name: n,
@@ -221,6 +213,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             color: PROJECT_COLORS[pieData.length]
           }
         )
+        console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -265,7 +258,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
       default: return n + 'th';
     }
   };
-  const onMonthChange = (date: any,fetchDataTypeObj:any) => {
+  const onMonthChange = (date: any, fetchDataTypeObj: any) => {
     console.log('onMonthChange')
     setSelectedMonth(date)
     fetchUserHours(getStartAndEndWeekNumbers(date), fetchDataTypeObj);
@@ -280,7 +273,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     if (val === 'all') {
       fetchUserHours({}, val);
     } else if (val === 'monthly') {
-      onMonthChange(new Date(),val)
+      onMonthChange(new Date(), val)
     } else if (val === 'custom') {
       setShowDatePicker(true)
     }
@@ -294,8 +287,44 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
 
     // Your filter logic here
   };
+  const sendEmail = async () => {
+    try {
 
+      fetch(`${supabaseUrl}/functions/v1/send-code`, {
+        method: 'POST',  // HTTP method POST
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,  // Your Authorization Bearer token
+          'Content-Type': 'application/json',  // Content type of the request body
+        },
+        body: JSON.stringify({ email: 'sachin@cqs.in' })  // JSON body with the email
+      })
+        .then(response => response.json())  // Parse the response as JSON
+        .then(data => {
+          console.log('Success:', data);  // Log the success data
+        })
+        .catch(error => {
+          console.error('Error:', error);  // Log any errors that occur
+        });
 
+    } catch (error) {
+      console.error('Error fetching detailed user hours:', error);
+      return null;
+    }
+  }
+  const exportExcel = () => {
+    let dateRange = {
+      start: "All",
+      end: "Data"
+    };
+    if (fetchDataType === 'monthly') {
+      dateRange.start = format(getMonthStartEnd(selectedMonth).start, 'yyyy-MM-dd');
+      dateRange.end = format(getMonthStartEnd(selectedMonth).end, 'yyyy-MM-dd');
+    } else if (fetchDataType === 'custom') {
+      dateRange.start = format(customDate.start, 'yyyy-MM-dd');
+      dateRange.end = format(customDate.end, 'yyyy-MM-dd');
+    }
+    exportProjectTimesheetByUsersToExcel(usersWithHours, project, dateRange)
+  }
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-normal justify-center p-4">
       <div className="bg-white rounded-xl w-full shadow-xl flex flex-col">
@@ -304,6 +333,13 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           <h2 className="text-xl font-semibold text-gray-900">{project && project.users && project.users.length && project.users.length == 1 ? (project.users[0].full_name + " - ") : ""}{project.name}</h2>
           <div className="flex items-center gap-2 min-w-[220px] justify-end">
             <div className="flex flex-col sm:flex-row gap-3">
+              {/* <button
+                onClick={() => sendEmail()}
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
+
+              >
+                {'send email'}
+              </button> */}
               <button
                 onClick={() => showAllClick('all')}
                 className={`flex items-center justify-center gap-2 px-4 py-2 ${fetchDataType == 'all' ? 'bg-[#1732ca]' : 'bg-white'} ${fetchDataType == 'all' ? 'border rounded-lg text-white hover:bg-[#1732ca]/90' : 'border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50'}`}
@@ -327,7 +363,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             {fetchDataType == 'monthly' &&
               <>
                 <button
-                  onClick={() => onMonthChange(subMonths(selectedMonth, 1),fetchDataType)}
+                  onClick={() => onMonthChange(subMonths(selectedMonth, 1), fetchDataType)}
                   className="p-1.5 hover:bg-gray-100 rounded-full"
                 >
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -336,7 +372,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                   {format(selectedMonth, 'MMMM yyyy')}
                 </span>
                 <button
-                  onClick={() => onMonthChange(addMonths(selectedMonth, 1),fetchDataType)}
+                  onClick={() => onMonthChange(addMonths(selectedMonth, 1), fetchDataType)}
                   className="p-1.5 hover:bg-gray-100 rounded-full"
                 >
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -360,11 +396,19 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         {/* Scrollable Content */}
         <div className="overflow-y-auto p-6 flex-1">
           {/* Project Details */}
-          <div className="mb-6">
-            <p className="text-sm text-gray-500 mb-2">Description</p>
-            <p className="text-gray-900">{project.description || 'No description provided'}</p>
+          <div className="mb-4 sticky w-full flex items-center justify-between ">
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-2">Description</p>
+              <p className="text-gray-900">{project.description || 'No description provided'}</p>
+            </div>
+            {(fetchDataType == 'all' && project && (project.totalHoursUsed || 0) > 0) || (fetchDataType != 'all' && monthlyHourUsed > 0) ?
+              <button
+                onClick={() => exportExcel()}
+                className={`flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] border rounded-lg text-white hover:bg-[#1732ca]/90`} >
+                {'Export Data in Excel'}
+              </button>
+              : null}
           </div>
-
           {/* Stats Cards */}
           <div className={`grid ${fetchDataType == 'all' ? 'grid-cols-3' : 'grid-cols-4'} gap-4 mb-8`}>
             <div className="bg-gray-50 rounded-lg p-4">
