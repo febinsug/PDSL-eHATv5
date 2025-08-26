@@ -10,6 +10,8 @@ import { FilterDialog } from '../components/projects/FilterDialog';
 import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
 import { ProjectDetailsModal } from '../components/projects/ProjectDetailsModal';
 import type { Project, User, Client, ProjectStatus } from '../types';
+import DateRangeSelector from '../components/shared/DateRangeSelector';
+import { getWeekNumberRangeBetweenTwoDates } from '../utils/common';
 
 interface ProjectFormData {
   name: string;
@@ -25,6 +27,11 @@ export const Projects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [completedProjects, setCompletedProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+
+  const [allProjectsForExcel, setAllProjectsForExcel] = useState<Project[]>([]);
+  const [allUsersForExcel, setAllUsersForExcel] = useState<User[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -60,14 +67,14 @@ export const Projects = () => {
     show: false,
     title: '',
     message: '',
-    action: async () => {},
+    action: async () => { },
   });
   const [selectedProject, setSelectedProject] = useState<(Project & { users?: User[], totalHoursUsed?: number }) | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
-      
+
       try {
         const [projectsResponse, usersResponse, clientsResponse] = await Promise.all([
           supabase
@@ -88,11 +95,14 @@ export const Projects = () => {
         ]);
 
         if (projectsResponse.data) {
+          setAllProjectsForExcel(projectsResponse.data);
+          // Separate active and completed projects
           const activeProjects = projectsResponse.data.filter(p => p.status !== 'completed');
           const completed = projectsResponse.data.filter(p => p.status === 'completed');
           setProjects(activeProjects);
           setCompletedProjects(completed);
         }
+        setAllUsersForExcel(usersResponse.data || []);
         setUsers(usersResponse.data || []);
         setClients(clientsResponse.data || []);
       } catch (error) {
@@ -109,17 +119,17 @@ export const Projects = () => {
   const filterProjects = (projects: Project[]) => {
     return projects.filter(project => {
       // Search filter
-      const searchMatch = !searchQuery || 
+      const searchMatch = !searchQuery ||
         project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         project.client?.name.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Client filter
-      const clientMatch = filterOptions.clients.length === 0 || 
+      const clientMatch = filterOptions.clients.length === 0 ||
         filterOptions.clients.includes(project.client_id);
 
       // Status filter
-      const statusMatch = filterOptions.status.length === 0 || 
+      const statusMatch = filterOptions.status.length === 0 ||
         filterOptions.status.includes(project.status);
 
       return searchMatch && clientMatch && statusMatch;
@@ -164,7 +174,7 @@ export const Projects = () => {
     setConfirmation({
       show: true,
       title: editingProject ? 'Update Project' : 'Create Project',
-      message: editingProject 
+      message: editingProject
         ? `Are you sure you want to update "${formData.name}"?`
         : `Are you sure you want to create project "${formData.name}"?`,
       action: async () => {
@@ -174,10 +184,10 @@ export const Projects = () => {
         try {
           if (editingProject) {
             // Set completed_at when status changes to completed
-            const completed_at = formData.status === 'completed' 
-              ? new Date().toISOString() 
-              : formData.status === 'active' || formData.status === 'on_hold' 
-                ? null 
+            const completed_at = formData.status === 'completed'
+              ? new Date().toISOString()
+              : formData.status === 'active' || formData.status === 'on_hold'
+                ? null
                 : editingProject.completed_at;
 
             const { error: updateError } = await supabase
@@ -399,7 +409,7 @@ export const Projects = () => {
         try {
           const { error } = await supabase
             .from('projects')
-            .update({ 
+            .update({
               status: 'completed',
               completed_at: new Date().toISOString()
             })
@@ -426,7 +436,7 @@ export const Projects = () => {
         try {
           const { error } = await supabase
             .from('projects')
-            .update({ 
+            .update({
               status: 'active',
               completed_at: null
             })
@@ -451,17 +461,17 @@ export const Projects = () => {
         .from('project_users')
         .select('user:users(*)')
         .eq('project_id', project.id);
-      
+
       // Fetch total hours used for this project
       const { data: timesheets } = await supabase
         .from('timesheets')
         .select('total_hours')
         .eq('project_id', project.id)
         .neq('status', 'rejected');
-      
+
       const users = projectUsers?.map(pu => pu.user) || [];
       const totalHoursUsed = timesheets?.reduce((sum, timesheet) => sum + (timesheet.total_hours || 0), 0) || 0;
-      
+
       setSelectedProject({
         ...project,
         users,
@@ -492,6 +502,63 @@ export const Projects = () => {
 
   const filteredProjects = filterProjects(projects);
   const sortedProjects = sortProjects(filteredProjects);
+
+  const fetchProjectTimesheets = async (filter: any) => {
+
+    try {
+      // Fetch timesheets for specified project IDs
+      let query = supabase
+        .from('timesheets')
+        .select('*')
+      // .order('date');
+      // If date range week filter is provided
+      if (filter.dateRangeWeek?.length) {
+        // Create more precise or conditions
+        const orConditions = filter.dateRangeWeek.map((r: any) =>
+          `and(year.eq.${r.year},week_number.gte.${r.startWeek},week_number.lte.${r.endWeek})`
+        ).join(',');
+
+        query = query.or(orConditions);
+      }
+
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Group timesheets by project and user
+      const groupedTimesheets = (data || []).reduce((acc, timesheet) => {
+        // Ensure project exists in accumulator
+        if (!acc[timesheet.project_id]) {
+          acc[timesheet.project_id] = { project: allProjectsForExcel.find(p => p.id === timesheet.project_id) || { id: timesheet.project_id, name: 'Unknown Project' } };
+          acc[timesheet.project_id].allUsers = {};
+        }
+
+        // Ensure user exists for this project
+        if (!acc[timesheet.project_id].allUsers[timesheet.user_id]) {
+          acc[timesheet.project_id].allUsers[timesheet.user_id] = { user: (allUsersForExcel.find(p => p.id === timesheet.user_id) || { id: timesheet.user_id, full_name: 'Unknown User' }), timeSheetData: [] };
+        }
+
+        // Add timesheet to the correct project and user group
+        acc[timesheet.project_id].allUsers[timesheet.user_id].timeSheetData.push(timesheet);
+
+        return acc;
+      }, {});
+      console.log('Grouped Timesheets:', JSON.stringify(groupedTimesheets));
+      // setProjectTimesheets(groupedTimesheets);
+    } catch (err) {
+      console.error('Error fetching project timesheets:', err);
+      // Optionally set an error state
+      // setError(err.message);
+    }
+  };
+  const handleDateRange = (start: any, end: any) => {
+    setShowDatePicker(false)
+    // setCustomDate({ start: start, end: end })
+    fetchProjectTimesheets(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
+
+
+    // Your filter logic here
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -591,6 +658,11 @@ export const Projects = () => {
               <Filter className="w-5 h-5" />
               Filter
             </button>
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className={`flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] border rounded-lg text-white hover:bg-[#1732ca]/90`} >
+              {'Export Data in Excel'}
+            </button>
           </div>
 
           <div className="space-y-8">
@@ -646,6 +718,12 @@ export const Projects = () => {
         <ProjectDetailsModal
           project={selectedProject}
           onClose={() => setSelectedProject(null)}
+        />
+      )}
+      {showDatePicker && (
+        <DateRangeSelector
+          onDateChange={handleDateRange}
+          onClose={() => setShowDatePicker(false)}
         />
       )}
     </div>

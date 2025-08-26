@@ -195,24 +195,33 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             }
           )
         })
-        let h = project.allocated_hours - (project?.totalHoursUsed || 0)
-        if (h < 0) {
-          h = 0
-        }
-        let n = "Pending"
-        if (project.users && project.users.length && project.users.length == 1) {
-          // pie data when popup open for only one user, as project detail for a user
-          n = 'Other'
+        // let h = project.allocated_hours - (project?.totalHoursUsed || 0)
+        // if (h < 0) {
+        //   h = 0
+        // }
+        // let n = "Pending"
+        // if (project.users && project.users.length && project.users.length == 1) {
+        //   // pie data when popup open for only one user, as project detail for a user
+        //   n = 'Other'
 
-        }
+        // }
 
-        pieData.push(
-          {
-            name: n,
-            hours: h,
-            color: PROJECT_COLORS[pieData.length]
-          }
-        )
+        if (fetchDataTypeObj == 'all') {
+          pieData.push(
+            {
+              name: 'Pending Hours',
+              hours: project.allocated_hours - (project?.totalHoursUsed || 0) > 0 ? project.allocated_hours - (project?.totalHoursUsed || 0) : 0,
+              color: PROJECT_COLORS[pieData.length]
+            }
+          )
+        }
+        // pieData.push(
+        //   {
+        //     name: n,
+        //     hours: h,
+        //     color: PROJECT_COLORS[pieData.length]
+        //   }
+        // )
         console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
