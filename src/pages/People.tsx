@@ -66,6 +66,7 @@ export const People = () => {
 
       try {
         // Fetch users, their projects, and departments
+        // console.log("Fetching users and departments...");
         const [usersResponse, projectUsersResponse, departmentsResponse] = await Promise.all([
           supabase
             .from('users')
@@ -115,7 +116,7 @@ export const People = () => {
             team: teamMap.get(user.id) || [],
             manager: usersResponse.data.find(u => u.id === user.manager_id)
           }));
-
+          // console.log("usersWithDetails", usersWithDetails);
           setUsers(usersWithDetails);
           setFilteredUsers(usersWithDetails);
         }
@@ -437,6 +438,7 @@ export const People = () => {
 
   const managers = filteredUsers.filter(u => u.role === 'manager');
   const employees = filteredUsers.filter(u => u.role === 'user');
+  const adminUsers = filteredUsers.filter(u => u.role === 'admin');
 
   return (
     <div className="space-y-6">
@@ -726,6 +728,113 @@ export const People = () => {
                     <tr>
                       <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                         No employees found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Admin Section */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Admin</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Admin User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {adminUsers.map(admin => (
+                    admin.username !== 'admin' && (
+                      <tr key={admin.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
+                              <span className="text-[#1732ca] font-medium">
+                                {(admin.full_name || admin.username)[0].toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {admin.full_name || admin.username}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {admin.designation || 'Adminstrator'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{admin.email || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{admin.username || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {departments.find(d => d.id === admin.department_id)?.name || '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingUser(admin);
+                                setShowUserForm(true);
+                              }}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="Edit manager"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setViewingProjects(admin)}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="View active projects"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setViewingUserDetails(admin)}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="View hours"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(admin)}
+                              className="text-red-600 hover:text-red-700"
+                              title="Delete manager"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )))}
+                  {adminUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                        No Admins found
                       </td>
                     </tr>
                   )}

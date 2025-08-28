@@ -187,7 +187,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           }
         }
       })
-      console.log(JSON.stringify(groupedArray), 'groupedArray')
+      // console.log(JSON.stringify(groupedArray), 'groupedArray')
       if (groupedArray && groupedArray.length) {
         setProjectArr(groupedArray)
         let pieData: any = []
@@ -263,7 +263,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
     setSelectedProject(obj)
 
 
-    console.log(obj, 'obj')
+    // console.log(obj, 'obj')
   }
   const showAllClick = (val: string) => {
     setFetchDataType(val)

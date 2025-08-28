@@ -24,7 +24,7 @@ export default function DateRangeSelector({ onDateChange, onClose, defaultStart,
     ]);
 
     const handleApply = () => {
-        console.log(range)
+        // console.log(range)
         if (range[0] && range[0].startDate && range[0].endDate) {
             onDateChange(format(range[0].startDate, 'yyyy-MM-dd'), format(range[0].endDate, 'yyyy-MM-dd'));
             onClose();
