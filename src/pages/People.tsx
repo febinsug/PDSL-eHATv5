@@ -752,6 +752,9 @@ export const People = () => {
                       Email
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Department
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -761,69 +764,73 @@ export const People = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {adminUsers.map(admin => (
-                    <tr key={admin.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
-                            <span className="text-[#1732ca] font-medium">
-                              {(admin.full_name || admin.username)[0].toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {admin.full_name || admin.username}
+                    admin.username !== 'admin' && (
+                      <tr key={admin.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#1732ca]/10 flex items-center justify-center">
+                              <span className="text-[#1732ca] font-medium">
+                                {(admin.full_name || admin.username)[0].toUpperCase()}
+                              </span>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {admin.designation || 'Adminstrator'}
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {admin.full_name || admin.username}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {admin.designation || 'Adminstrator'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{admin.email || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {departments.find(d => d.id === admin.department_id)?.name || '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingUser(admin);
-                              setShowUserForm(true);
-                            }}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
-                            title="Edit manager"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setViewingProjects(admin)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
-                            title="View active projects"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setViewingUserDetails(admin)}
-                            className="text-[#1732ca] hover:text-[#1732ca]/80"
-                            title="View hours"
-                          >
-                            <Clock className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(admin)}
-                            className="text-red-600 hover:text-red-700"
-                            title="Delete manager"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{admin.email || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{admin.username || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {departments.find(d => d.id === admin.department_id)?.name || '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingUser(admin);
+                                setShowUserForm(true);
+                              }}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="Edit manager"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setViewingProjects(admin)}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="View active projects"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setViewingUserDetails(admin)}
+                              className="text-[#1732ca] hover:text-[#1732ca]/80"
+                              title="View hours"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(admin)}
+                              className="text-red-600 hover:text-red-700"
+                              title="Delete manager"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )))}
                   {adminUsers.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
