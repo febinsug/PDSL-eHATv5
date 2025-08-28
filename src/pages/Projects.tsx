@@ -543,7 +543,7 @@ export const Projects = () => {
 
         return acc;
       }, {});
-      console.log('Grouped Timesheets:', JSON.stringify(groupedTimesheets));
+      // console.log('Grouped Timesheets:', JSON.stringify(groupedTimesheets));
       // setProjectTimesheets(groupedTimesheets);
     } catch (err) {
       console.error('Error fetching project timesheets:', err);

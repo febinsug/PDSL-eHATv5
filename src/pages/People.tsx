@@ -66,7 +66,7 @@ export const People = () => {
 
       try {
         // Fetch users, their projects, and departments
-        console.log("Fetching users and departments...");
+        // console.log("Fetching users and departments...");
         const [usersResponse, projectUsersResponse, departmentsResponse] = await Promise.all([
           supabase
             .from('users')
@@ -116,7 +116,7 @@ export const People = () => {
             team: teamMap.get(user.id) || [],
             manager: usersResponse.data.find(u => u.id === user.manager_id)
           }));
-          console.log("usersWithDetails", usersWithDetails);
+          // console.log("usersWithDetails", usersWithDetails);
           setUsers(usersWithDetails);
           setFilteredUsers(usersWithDetails);
         }

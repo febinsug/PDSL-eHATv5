@@ -222,7 +222,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         //     color: PROJECT_COLORS[pieData.length]
         //   }
         // )
-        console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
+        // console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -268,7 +268,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
     }
   };
   const onMonthChange = (date: any, fetchDataTypeObj: any) => {
-    console.log('onMonthChange')
+    // console.log('onMonthChange')
     setSelectedMonth(date)
     fetchUserHours(getStartAndEndWeekNumbers(date), fetchDataTypeObj);
   }

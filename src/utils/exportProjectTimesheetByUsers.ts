@@ -45,12 +45,117 @@ export const exportProjectTimesheetByUsersToExcel = (
 ) => {
   const workbook = XLSX.utils.book_new();
 
+  // ===== 1️⃣ Summary Sheet =====
+  const summaryData: any[] = [];
+
+  // Project Info
+  summaryData.push(["Project Name", project.name]);
+  // summaryData.push(["Project ID", project.id]);
+  summaryData.push(["Total Allocated Hours", project.allocated_hours + ' hrs']);
+  // Date Range
+  if (isValid(new Date(dateRange.start)) && isValid(new Date(dateRange.end))) {
+    summaryData.push(["Date Range", `${format(new Date(dateRange.start), 'dd-MMM-yy')} to ${format(new Date(dateRange.end), 'dd-MMM-yy')}`]); // show date range
+  }
+  else {
+    summaryData.push(["Date Range", "All Data (Full History)"]); // show all data
+  }
+
+  summaryData.push(["Total Users Worked", (users.length + ' users')]);
+
+  // Total hours
+  const totalHours = users.reduce((acc, user) => acc + user.hoursUsed, 0);
+  summaryData.push(["Total Hours Worked", (totalHours + ' hrs')]);
+
+  summaryData.push([]); // empty row
+  summaryData.push(["Name", "Email", "Designation", "Hours Worked"]);
+
+  users.forEach((user) => {
+    summaryData.push([
+      user.full_name || user.username,
+      user.email || "N/A",
+      user.designation || "N/A",
+      user.hoursUsed + ' hrs',
+    ]);
+  });
+
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+
+
+
+
+
+  // Apply styles to the header row
+  // --- 🎨 Apply styles ---
+  const range = XLSX.utils.decode_range(summarySheet["!ref"] || "A1");
+
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = summarySheet[cellRef];
+      if (!cell) continue;
+
+      // Bold labels (first column in project info)
+      if (R >= 0 && R <= 4 && C === 0) {
+        cell.s = { font: { bold: true } };
+      }
+
+      // Header row (row index 6, since 0-based)
+      if (R === 6) {
+        cell.s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "4472C4" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } },
+          },
+        };
+      }
+
+
+
+      // Zebra rows (alternating background for readability)
+      if (R > 6 && R % 2 === 0 && cell.v && cell.v !== "Weekly Total") {
+        cell.s = {
+          ...cell.s,
+          fill: { fgColor: { rgb: "F2F2F2" } },
+        };
+      }
+    }
+  }
+
+  // Freeze header row
+  summarySheet["!freeze"] = { xSplit: 0, ySplit: 6 };
+
+  // Auto column width
+  const colWidths = new Array(range.e.c + 1).fill(10);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = summarySheet[cellRef];
+      if (cell && cell.v) {
+        const len = cell.v.toString().length;
+        colWidths[C] = Math.max(colWidths[C], len + 2);
+      }
+    }
+  }
+  summarySheet["!cols"] = colWidths.map((w) => ({ wch: w }));
+
+  // style done
+
+
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+  // ===== 2️⃣ Per-user Sheets =====
+
   users.forEach((user) => {
     const sheetData: any[] = [];
 
     // Project info
     sheetData.push(["Project Name", project.name]);
-    sheetData.push(["Project ID", project.id]);
+    // sheetData.push(["Project ID", project.id]);
     sheetData.push(["Name", user.full_name || user.username]);
     sheetData.push(["Email", user.email || ""]);
     sheetData.push(["Designation", user.designation || ""]);
@@ -122,11 +227,11 @@ export const exportProjectTimesheetByUsersToExcel = (
       weekDays.forEach((day) => {
         if (weekData[day].date) {
           sheetData.push([
-            weekNum,
-            new Date(weekData[day].date).getUTCFullYear(),
+            (weekNum + ''),
+            (new Date(weekData[day].date).getUTCFullYear() + ''),
             weekData[day].date,
-            day.charAt(0).toUpperCase() + day.slice(1), // Capitalize first letter of the day
-            weekData[day].hours,
+            ((day.charAt(0).toUpperCase() + day.slice(1)) + ''), // Capitalize first letter of the day
+            (weekData[day].hours + ''),
             new Date(weekData[day].date).toLocaleString("en-US", { month: "long", timeZone: "UTC" }),
             //weekData.isCrossMonth ? "Yes" : "", // Mark cross-month weeks
           ]);
@@ -156,12 +261,12 @@ export const exportProjectTimesheetByUsersToExcel = (
         if (!cell) continue;
 
         // Bold labels (first column in project info)
-        if (R >= 0 && R <= 5 && C === 0) {
+        if (R >= 0 && R <= 4 && C === 0) {
           cell.s = { font: { bold: true } };
         }
 
         // Header row (row index 6, since 0-based)
-        if (R === 7) {
+        if (R === 6) {
           cell.s = {
             font: { bold: true, color: { rgb: "FFFFFF" } },
             fill: { fgColor: { rgb: "4472C4" } },
@@ -174,7 +279,6 @@ export const exportProjectTimesheetByUsersToExcel = (
             },
           };
         }
-
         // Weekly Total row (column D contains "Weekly Total")
         if (cell.v === "Weekly Total") {
           worksheet[XLSX.utils.encode_cell({ r: R, c: 3 })].s = {
@@ -198,7 +302,7 @@ export const exportProjectTimesheetByUsersToExcel = (
     }
 
     // Freeze header row
-    worksheet["!freeze"] = { xSplit: 0, ySplit: 7 };
+    worksheet["!freeze"] = { xSplit: 0, ySplit: 6 };
 
     // Auto column width
     const colWidths = new Array(range.e.c + 1).fill(10);
