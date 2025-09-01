@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import type { User, Project } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { ProjectDetailsModal } from '../projects/ProjectDetailsModal';
@@ -43,6 +43,8 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [pieChartData, setPieChartData] = useState([])
+  const [searchQuery, setSearchQuery] = useState('');
+
 
 
   const fetchUserDetailedHours = async (userData: any, filter: any) => {
@@ -309,6 +311,13 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
     }
     exportUserTimesheetByProjectsToExcel(projectArr, user, dateRange)
   }
+  const checkForSearchProject = (proj: any) => {
+    return (
+      proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      proj.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      proj.client?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }
   return (
 
 
@@ -379,15 +388,29 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
           </div>
           {/* Header - Fixed */}
           <div className="mb-4 sticky w-full flex items-center justify-between ">
-            <div className='flex items-center justify-between w-1/2'>
-              <h4 className="text-m font-medium text-gray-700 mb-3">Total Projects Assigned : {projectArr && projectArr.length || 0}</h4>
+            <div className='flex items-start justify-between w-1/2'>
+              <div>
+                <h4 className="text-m font-medium text-gray-700 mb-3">Total Projects Assigned : {projectArr && projectArr.length || 0}</h4>
 
-              {projectArr && projectArr.length &&
-                <h4 className="text-m font-medium text-gray-700 mb-3">Total hours: {projectArr.reduce(
-                  (sum, item) => sum + item.total_hours,
-                  0
-                )} hr</h4>
-              }
+                {projectArr && projectArr.length &&
+                  <h4 className="text-m font-medium text-gray-700 mb-3">Total hours: {projectArr.reduce(
+                    (sum, item) => sum + item.total_hours,
+                    0
+                  )} hr</h4>
+                }
+              </div>
+              <div className="relative w-1/2">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder={"Search projects..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-[#1732ca] focus:border-[#1732ca] text-sm"
+                />
+              </div>
             </div>
             {projectArr.reduce(
               (sum, item) => sum + item.total_hours,
@@ -401,28 +424,34 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
             }
 
           </div>
+
           <div className="flex flex-1 overflow-hidden">
             {/* Scrollable Content */}
             <div className="w-1/2 overflow-y-auto p-1 space-y-4">
               {projectArr && projectArr.length > 0 ? (
-                projectArr.map((project: any) => (
-                  <div
-                    onClick={(e) => {
-                      if ((e.target as HTMLElement).closest('button')) return;
-                      onSelectProject(project);
-                    }}
-                    key={project.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-[#1732ca10] cursor-pointer">
-                    <div>
-                      <p className="font-medium text-gray-900">{project.name}</p>
-                      <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
-                      <p className="text-sm text-gray-500">Assigned On: {format(project.assigned_at, "dd MMM yyyy")}</p>
+                projectArr.map((project: any) => {
+                  if (searchQuery && !checkForSearchProject(project)) {
+                    return null; // Skip rendering this project if they don't match the search query
+                  }
+                  return (
+                    <div
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button')) return;
+                        onSelectProject(project);
+                      }}
+                      key={project.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-[#1732ca10] cursor-pointer">
+                      <div>
+                        <p className="font-medium text-gray-900">{project.name}</p>
+                        <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
+                        <p className="text-sm text-gray-500">Assigned On: {format(project.assigned_at, "dd MMM yyyy")}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">Total Hours: {project.total_hours} hr</p>
+                        <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours} hr</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">Total Hours: {project.total_hours} hr</p>
-                      <p className="text-sm text-gray-500">Allocated Hours: {project.allocated_hours} hr</p>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               ) : (
                 <p className="text-gray-500 text-center py-4">No projects assigned</p>
               )}

@@ -153,7 +153,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Assign Users
+            Assign Users ({formData.assigned_users.length} selected)
           </label>
           <div className="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-md">
             {availableUsers.map(user => (
