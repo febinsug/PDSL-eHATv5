@@ -12,6 +12,8 @@ import { ProjectDetailsModal } from '../components/projects/ProjectDetailsModal'
 import type { Project, User, Client, ProjectStatus } from '../types';
 import DateRangeSelector from '../components/shared/DateRangeSelector';
 import { getWeekNumberRangeBetweenTwoDates } from '../utils/common';
+import exportExcelByProject from '../utils/exportExcelByProject';
+import { format } from 'date-fns';
 
 interface ProjectFormData {
   name: string;
@@ -503,7 +505,7 @@ export const Projects = () => {
   const filteredProjects = filterProjects(projects);
   const sortedProjects = sortProjects(filteredProjects);
 
-  const fetchProjectTimesheets = async (filter: any) => {
+  const fetchProjectTimesheets = async (filter: any, dateRange: any) => {
 
     try {
       // Fetch timesheets for specified project IDs
@@ -543,7 +545,9 @@ export const Projects = () => {
 
         return acc;
       }, {});
-      // console.log('Grouped Timesheets:', JSON.stringify(groupedTimesheets));
+      console.log('Grouped Timesheets:', JSON.stringify(groupedTimesheets));
+
+      exportExcelByProject(groupedTimesheets, dateRange)
       // setProjectTimesheets(groupedTimesheets);
     } catch (err) {
       console.error('Error fetching project timesheets:', err);
@@ -554,7 +558,7 @@ export const Projects = () => {
   const handleDateRange = (start: any, end: any) => {
     setShowDatePicker(false)
     // setCustomDate({ start: start, end: end })
-    fetchProjectTimesheets(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)));
+    fetchProjectTimesheets(getWeekNumberRangeBetweenTwoDates(new Date(start), new Date(end)), { start: format(new Date(start), 'yyyy-MM-dd'), end: format(new Date(end), 'yyyy-MM-dd') });
 
 
     // Your filter logic here

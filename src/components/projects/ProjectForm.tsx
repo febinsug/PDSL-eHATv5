@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import type { Project, User, Client, ProjectStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { COLORS } from '../../utils/constants';
 
 interface ProjectFormData {
   name: string;
@@ -34,6 +35,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   editingProject,
 }) => {
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectAll, setSelectAll] = useState(false);
+
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -42,7 +46,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           .from('users')
           .select('*')
           .order('full_name', { ascending: true });
-        
+
         if (data) {
           // Sort alphabetically by full_name or username as fallback
           const sortedUsers = data.sort((a, b) => {
@@ -50,17 +54,33 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
             const nameB = b.full_name || b.username;
             return nameA.localeCompare(nameB);
           });
-          
+
           setAvailableUsers(sortedUsers);
         }
       } catch (error) {
         console.error('Error fetching users:', error);
       }
     };
-    
+
     fetchUsers();
   }, []);
-
+  const onSelectAll = () => {
+    setSelectAll(prev => !prev)
+    if (!selectAll) { // If not all selected, select all
+      const allUserIds = availableUsers.map(user => user.id);
+      setFormData(prev => ({ ...prev, assigned_users: allUserIds }));
+    } else { // If all selected, deselect all
+      setFormData(prev => ({ ...prev, assigned_users: [] }));
+    }
+  }
+  const checkForSearchUser = (user: any) => {
+    return (
+      user.username.toLowerCase().includes(searchQuery) ||
+      (user.full_name && user.full_name.toLowerCase().includes(searchQuery)) ||
+      (user.email && user.email.toLowerCase().includes(searchQuery)) ||
+      (user.designation && user.designation.toLowerCase().includes(searchQuery))
+    )
+  }
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-lg font-semibold mb-4">
@@ -155,26 +175,48 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Assign Users ({formData.assigned_users.length} selected)
           </label>
+          <div className="mb-[0px] mt-[20px] flex items-baseline">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder={"Search users..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-[#1732ca] focus:border-[#1732ca] text-sm"
+              />
+            </div>
+            <h3 onClick={() => onSelectAll()}
+              style={{ color: !selectAll ? COLORS.blue1 : COLORS.terra1 }}
+              className={`text-sm font-medium mb-4 items-center cursor-pointer ml-[20px]`}>{!selectAll ? 'Select All' : 'Deselect all'}</h3>
+          </div>
           <div className="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-            {availableUsers.map(user => (
-              <label key={user.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.assigned_users.includes(user.id)}
-                  onChange={e => {
-                    setFormData(prev => ({
-                      ...prev,
-                      assigned_users: e.target.checked
-                        ? [...prev.assigned_users, user.id]
-                        : prev.assigned_users.filter(id => id !== user.id),
-                    }));
-                  }}
-                  className="rounded border-gray-300 text-[#1732ca] focus:ring-[#1732ca]"
-                />
-                <span>{user.full_name || user.username}</span>
-                <span className="text-sm text-gray-500 capitalize">({user.role})</span>
-              </label>
-            ))}
+            {availableUsers.map(user => {
+              if (searchQuery && !checkForSearchUser(user)) {
+                return null; // Skip rendering this user if they don't match the search query
+              }
+              return (
+                <label key={user.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.assigned_users.includes(user.id)}
+                    onChange={e => {
+                      setFormData(prev => ({
+                        ...prev,
+                        assigned_users: e.target.checked
+                          ? [...prev.assigned_users, user.id]
+                          : prev.assigned_users.filter(id => id !== user.id),
+                      }));
+                    }}
+                    className="rounded border-gray-300 text-[#1732ca] focus:ring-[#1732ca]"
+                  />
+                  <span>{user.full_name || user.username}</span>
+                  <span className="text-sm text-gray-500 capitalize">({user.role})</span>
+                </label>
+              )
+            })}
           </div>
         </div>
 

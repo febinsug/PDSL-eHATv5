@@ -319,7 +319,11 @@ export const exportProjectTimesheetByUsersToExcel = (
     worksheet["!cols"] = colWidths.map((w) => ({ wch: w }));
 
     // style done
-    XLSX.utils.book_append_sheet(workbook, worksheet, (user.full_name.substring(0, 31) || user.username.substring(0, 31)));
+
+    const safeSheetName = (user.full_name || user.username)
+      .replace(/[:\\\/\?\*\[\]]/g, " ") // replace invalid characters with space
+      .substring(0, 31);
+    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName);
   });
 
   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
