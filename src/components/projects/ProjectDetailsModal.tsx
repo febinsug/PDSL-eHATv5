@@ -47,6 +47,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
   const [customDate, setCustomDate] = useState(customDateFromLast || { start: new Date(), end: new Date() });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [allManagers, setAllManagers] = useState<UserWithHours[]>([]);
 
   const [refresh, setRefresh] = useState(0);
   const weekArr = [
@@ -102,6 +103,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         return;
       }
 
+      const { data: allManagersData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'manager');
+
+      setAllManagers(allManagersData ? allManagersData : []);
       const userIds = project.users.map(user => user.id);
 
       // Fetch hours for each user in this project
@@ -224,7 +231,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         //     color: PROJECT_COLORS[pieData.length]
         //   }
         // )
-        // console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
+        console.log(JSON.stringify(enhancedUsers), "enhancedUsers")
         setPieChartData(pieData)
         setUsersWithHours(enhancedUsers ? enhancedUsers : []);
 
@@ -497,7 +504,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                         className="flex items-center justify-between p-4 hover:shadow-sm transition-all duration-200 cursor-pointer"
                         onClick={() => toggleUser(user.id)}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shrink-0 shadow-sm">
                             <span className="text-blue-700 font-medium">
                               {(user.full_name || user.username).charAt(0).toUpperCase()}
@@ -508,6 +515,13 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                             {user.designation && (
                               <p className="text-xs text-gray-500">{user.designation}</p>
                             )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-1">
+
+                          <div>
+                            <p className="text-xs text-gray-900">{allManagers.find((m: any) => m.id === user.manager_id)?.full_name ? "Manager":'Role'}</p>
+                            <p className="text-xs text-gray-500">{allManagers.find((m: any) => m.id === user.manager_id)?.full_name || user.role.toUpperCase()}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

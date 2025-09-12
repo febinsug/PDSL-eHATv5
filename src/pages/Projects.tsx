@@ -29,6 +29,7 @@ export const Projects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [completedProjects, setCompletedProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [viewType, setViewType] = useState<'all' | 'manager'>('manager');
 
   const [allProjectsForExcel, setAllProjectsForExcel] = useState<Project[]>([]);
   const [allUsersForExcel, setAllUsersForExcel] = useState<User[]>([]);
@@ -78,14 +79,33 @@ export const Projects = () => {
       if (!user) return;
 
       try {
-        const [projectsResponse, usersResponse, clientsResponse] = await Promise.all([
-          supabase
-            .from('projects')
-            .select(`
-              *,
-              client:clients(*)
-            `)
-            .order('created_at', { ascending: false }),
+
+        // First get team members if viewing team data
+        let teamMemberProjectIds: string[] = [];
+        if (user.role === 'manager' && viewType === 'manager') {
+          // Get team member projects
+          const { data: teamProjects, error: err1 } = await supabase
+            .from('project_users')
+            .select('project_id, users!inner(manager_id)')
+            .eq('users.manager_id', user.id);
+
+          // Get manager’s own projects
+          const { data: managerProjects, error: err2 } = await supabase
+            .from('project_users')
+            .select('project_id')
+            .eq('user_id', user.id);
+
+          // Merge + deduplicate + flatten to array of IDs
+          teamMemberProjectIds = [
+            ...(teamProjects ?? []),
+            ...(managerProjects ?? []),
+          ]
+            .map(row => row.project_id) // extract just the project_id
+            .filter((id, i, arr) => arr.indexOf(id) === i); // deduplicate
+
+          console.log(teamMemberProjectIds); // 👉 [ 'project1', 'project2', ... ]
+        }
+        const [usersResponse, clientsResponse] = await Promise.all([
           supabase
             .from('users')
             .select('*')
@@ -95,6 +115,18 @@ export const Projects = () => {
             .select('*')
             .order('name')
         ]);
+
+        let query = supabase
+          .from('projects')
+          .select(`
+              *,
+              client:clients(*)
+            `)
+          .order('created_at', { ascending: false })
+        if (user.role === 'manager' && viewType === 'manager') {
+          query = query.in('id', teamMemberProjectIds);
+        }
+        const projectsResponse = await query;
 
         if (projectsResponse.data) {
           setAllProjectsForExcel(projectsResponse.data);
@@ -116,7 +148,7 @@ export const Projects = () => {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, viewType]);
 
   const filterProjects = (projects: Project[]) => {
     return projects.filter(project => {
@@ -567,8 +599,31 @@ export const Projects = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Project Management</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Project Management</h1>
+          {!showClients && user?.role === 'manager' && (
+            <div className="flex items-center">
+              <span className="text-gray-500 mr-2 text-base">for</span>
+              <div className="relative inline-block">
+                <select
+                  value={viewType}
+                  onChange={(e) => setViewType(e.target.value as 'all' | 'manager')}
+                  className="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-1.5 text-base text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:bg-gray-50"
+                >
+                  <option value="manager">My Team Projects</option>
+                  <option value="all">All Projects</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex flex-col sm:flex-row gap-3">
+
           {!showForm && !showClientForm && (
             <>
               <button
@@ -662,11 +717,11 @@ export const Projects = () => {
               <Filter className="w-5 h-5" />
               Filter
             </button>
-            <button
+            {/* <button
               onClick={() => setShowDatePicker(true)}
               className={`flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] border rounded-lg text-white hover:bg-[#1732ca]/90`} >
               {'Export Data in Excel'}
-            </button>
+            </button> */}
           </div>
 
           <div className="space-y-8">
