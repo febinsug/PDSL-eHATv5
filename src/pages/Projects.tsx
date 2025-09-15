@@ -103,7 +103,8 @@ export const Projects = () => {
             .map(row => row.project_id) // extract just the project_id
             .filter((id, i, arr) => arr.indexOf(id) === i); // deduplicate
 
-          console.log(teamMemberProjectIds); // 👉 [ 'project1', 'project2', ... ]
+          console.log(teamMemberProjectIds); 
+          // 👉 [ 'project1', 'project2', ... ]
         }
         const [usersResponse, clientsResponse] = await Promise.all([
           supabase
