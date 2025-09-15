@@ -314,6 +314,9 @@ export const exportUserTimesheetByProjectsToExcel = (
     worksheet["!cols"] = colWidths.map((w) => ({ wch: w }));
 
     // style done
+    const safeSheetName = project.name
+      .replace(/[:\\\/\?\*\[\]]/g, " ") // replace invalid characters with space
+      .substring(0, 31);
     XLSX.utils.book_append_sheet(workbook, worksheet, project.name.substring(0, 31));
   });
 
