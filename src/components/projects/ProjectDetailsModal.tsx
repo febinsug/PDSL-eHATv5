@@ -218,7 +218,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
         if (fetchDataTypeObj == 'all') {
           pieData.push(
             {
-              name: 'Pending Hours',
+              name: 'Remaining hours',
               hours: project.allocated_hours - (project?.totalHoursUsed || 0) > 0 ? project.allocated_hours - (project?.totalHoursUsed || 0) : 0,
               color: PROJECT_COLORS[pieData.length]
             }
