@@ -19,7 +19,7 @@ export const TimesheetBreakdown: React.FC<TimesheetBreakdownProps> = ({ timeshee
 
   const monthKey = format(selectedMonth, 'yyyy-MM');
   const monthEntry = timesheet.month_hours?.[monthKey];
-
+  console.log(timesheet, 'timesheettimesheettimesheet', monthKey, monthEntry);
   const days = [
     { name: 'Monday', hours: monthEntry?.monday_hours ?? 0 },
     { name: 'Tuesday', hours: monthEntry?.tuesday_hours ?? 0 },
@@ -46,6 +46,21 @@ export const TimesheetBreakdown: React.FC<TimesheetBreakdownProps> = ({ timeshee
                   <div>
                     <span className="text-base font-semibold text-gray-900">{day.hours || 0}</span>
                     <span className="text-xs text-gray-500 ml-1">hrs</span>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-black font-semibold">{"Work Details : "}</span>
+                  {/* <span className="text-xs text-gray-500 ml-1">{timesheet.work_description ? timesheet.work_description[day.name.toLowerCase()] : "N/A"}</span> */}
+
+                  <div className="relative group ml-1">
+                    <span className="text-[10px] text-gray-500 line-clamp-2 break-words">
+                      {timesheet.work_description?.[day.name.toLowerCase()] || "N/A"}
+                    </span>
+
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 w-64 max-w-xs bg-gray-700 text-white text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 break-words">
+                      {timesheet.work_description?.[day.name.toLowerCase()] || "N/A"}
+                    </div>
                   </div>
                 </div>
               </div>

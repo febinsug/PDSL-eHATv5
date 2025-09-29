@@ -520,7 +520,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                         <div className="flex items-center gap-2 flex-1">
 
                           <div>
-                            <p className="text-xs text-gray-900">{allManagers.find((m: any) => m.id === user.manager_id)?.full_name ? "Manager":'Role'}</p>
+                            <p className="text-xs text-gray-900">{allManagers.find((m: any) => m.id === user.manager_id)?.full_name ? "Manager" : 'Role'}</p>
                             <p className="text-xs text-gray-500">{allManagers.find((m: any) => m.id === user.manager_id)?.full_name || user.role.toUpperCase()}</p>
                           </div>
                         </div>
@@ -555,6 +555,7 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                           ) : user?.timeSheetData.map((week: any) => {
                             const isWeekExpanded = (expandedWeeks[user.id] || []).includes(week.week_number);
                             const { weekStart, weekEnd } = getWeekDateRange(week.week_number, week.year);
+                            console.log(week, "week")
                             return (
                               <div key={week.week_number} className="bg-gray-50 rounded-lg">
                                 <div
@@ -599,6 +600,17 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
                                             <span className="text-xs text-gray-500">{k.day}</span>
                                             <span className="font-medium text-gray-900">{week[k.key]}h</span>
                                             <span className="text-[10px] text-gray-400 mt-0.5">{ordinal(date.getDate())} {format(date, 'MMM yyyy')}</span>
+                                            <span className="text-[10px] text-black font-semibold">{"Work Details : "}</span>
+                                            <div className="relative group ml-1">
+                                              <span className="text-[10px] text-gray-500 line-clamp-2 break-words">
+                                                {week.work_description?.[k.day.toLowerCase()] || "N/A"}
+                                              </span>
+
+                                              {/* Tooltip */}
+                                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 w-64 max-w-xs bg-gray-700 text-white text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 break-words">
+                                                {week.work_description?.[k.day.toLowerCase()] || "N/A"}
+                                              </div>
+                                            </div>
                                           </div>
                                         );
                                       })}

@@ -13,6 +13,7 @@ import type { TimesheetWithDetails } from '../types';
 
 interface TimesheetWithProject extends Timesheet {
   project: Project;
+  work_description: any;
 }
 
 interface ApprovedWeekDialog {
@@ -88,6 +89,7 @@ export const HourSubmission = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [projects, setProjects] = useState<Project[]>([]);
   const [hours, setHours] = useState<Record<string, Record<string, number>>>({});
+  const [workDescription, setWorkDescription] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -200,6 +202,7 @@ export const HourSubmission = () => {
 
         if (timesheets && timesheets.length > 0) {
           const hoursData: Record<string, Record<string, number>> = {};
+          const workData: any = {};
           timesheets.forEach(timesheet => {
             hoursData[timesheet.project_id] = {
               monday_hours: timesheet.monday_hours || 0,
@@ -208,11 +211,14 @@ export const HourSubmission = () => {
               thursday_hours: timesheet.thursday_hours || 0,
               friday_hours: timesheet.friday_hours || 0,
             };
+            workData[timesheet.project_id] = timesheet.work_description || {}
           });
+          setWorkDescription(workData)
           setHours(hoursData);
           setTimesheetStatus(timesheets[0].status);
         } else {
           setHours({});
+          setWorkDescription({})
           setTimesheetStatus(null);
         }
 
@@ -247,8 +253,19 @@ export const HourSubmission = () => {
     }));
   };
 
+  const handleNoteChange = (projectId: string, day: string, value: string) => {
+    setWorkDescription((prev: { [x: string]: any; }) => ({
+      ...prev,
+      [projectId]: {
+        ...prev[projectId],
+        [`${day}`]: value,
+      },
+    }));
+  };
+
   const validateHours = () => {
     const hasHours = Object.values(hours).some(projectHours =>
+
       Object.values(projectHours).some(value => value >= 0)
     );
 
@@ -305,6 +322,7 @@ export const HourSubmission = () => {
             friday_hours: projectHours.friday_hours || 0,
             status: 'pending',
             submitted_at: new Date().toISOString(),
+            work_description: workDescription?.[projectId] || {},
             month_hours: splitTimesheetByMonth({
               user_id: user.id,
               project_id: projectId,
@@ -314,9 +332,11 @@ export const HourSubmission = () => {
               tuesday_hours: projectHours.tuesday_hours || 0,
               wednesday_hours: projectHours.wednesday_hours || 0,
               thursday_hours: projectHours.thursday_hours || 0,
-              friday_hours: projectHours.friday_hours || 0
+              friday_hours: projectHours.friday_hours || 0,
+              project: undefined
             }, 'pending')
           };
+
           const totalHours = timesheetData.monday_hours + timesheetData.tuesday_hours + timesheetData.wednesday_hours + timesheetData.thursday_hours + timesheetData.friday_hours;
 
           if (editingTimesheet && editingTimesheet.project_id === projectId) {
@@ -359,6 +379,7 @@ export const HourSubmission = () => {
 
             if (existingTimesheet) {
               // Update existing timesheet
+
               // if all hour sum of editing timesheet is 0 then delete timesheet else edit timeseheet
               if (totalHours === 0) {
                 const { error: deleteError } = await supabase
@@ -410,6 +431,7 @@ export const HourSubmission = () => {
       setShowConfirmation(false);
       setSuccess(true);
       setHours({});
+      setWorkDescription({})
       setEditingTimesheet(null);
 
       // Clear success message after 3 seconds
@@ -469,6 +491,7 @@ export const HourSubmission = () => {
         friday_hours: timesheet.friday_hours || 0,
       },
     });
+    setWorkDescription({ [timesheet.project_id]: timesheet?.work_description || {} })
     setEditingTimesheet(timesheet);
     toast.success('Now editing timesheet');
   };
@@ -583,6 +606,8 @@ export const HourSubmission = () => {
           hours={hours}
           weekDays={weekDays}
           handleHourChange={handleHourChange}
+          handleNoteChange={handleNoteChange}
+          workDescription={workDescription}
           isReadOnly={timesheetStatus === 'approved'}
         />
 
