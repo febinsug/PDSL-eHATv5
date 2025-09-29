@@ -8,7 +8,9 @@ interface SubmissionFormProps {
   hours: Record<string, Record<string, number>>;
   weekDays: Date[];
   handleHourChange: (projectId: string, day: string, value: string) => void;
+  handleNoteChange: any;
   isReadOnly?: boolean;
+  workDescription?: any;
 }
 
 export const SubmissionForm: React.FC<SubmissionFormProps> = ({
@@ -16,7 +18,9 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   hours,
   weekDays,
   handleHourChange,
+  handleNoteChange,
   isReadOnly = false,
+  workDescription
 }) => {
   const calculateWeeklyTotal = (projectHours: Record<string, number>) => {
     return Object.values(projectHours).reduce((sum, hours) => sum + (hours || 0), 0);
@@ -25,6 +29,10 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const getDayKey = (date: Date) => {
     const dayName = format(date, 'EEEE').toLowerCase();
     return `${dayName}_hours`;
+  };
+  const getDayNotes = (date: Date) => {
+    const dayName = format(date, 'EEEE').toLowerCase();
+    return `${dayName}`;
   };
 
   return (
@@ -47,7 +55,8 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             {projects.map(project => {
               const projectHours = hours[project.id] || {};
               const total = calculateWeeklyTotal(projectHours);
-
+              console.log(project, 'projectprojectproject', hours, workDescription)
+              const projectNotes = workDescription ? workDescription[project.id] || {} : {};
               return (
                 <tr key={project.id} className={`${isReadOnly ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                   <td className="py-4 px-6">
@@ -63,9 +72,10 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                   </td>
                   {weekDays.map(day => {
                     const dayKey = getDayKey(day);
+                    const noteKey = getDayNotes(day);
                     return (
-                      <td key={day.toString()} className="py-4 px-6">
-                        <div className="flex justify-center">
+                      <td key={day.toString()} className="py-4 px-2">
+                        <div className="flex justify-center flex-col items-center gap-2">
                           <input
                             type="number"
                             min="0"
@@ -79,12 +89,30 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                               focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
                               hover:border-gray-400 transition-colors
                               placeholder-gray-400
-                              ${isReadOnly ? 
-                                'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 
+                              ${isReadOnly ?
+                                'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' :
                                 'bg-white'
                               }
                             `}
                             placeholder="0.0"
+                          />
+
+                          <textarea
+                            maxLength={150}
+                            value={projectNotes?.[noteKey] || ''}
+                            onChange={e => handleNoteChange(project.id, format(day, 'EEEE').toLowerCase(), e.target.value)}
+                            disabled={isReadOnly}
+                            className={`
+                              w-40 p-2 text-[12px] rounded-lg border-gray-300 shadow-sm
+                              focus:border-[#1732ca] focus:ring focus:ring-[#1732ca] focus:ring-opacity-50
+                              hover:border-gray-400 transition-colors
+                              placeholder-gray-400 resize-none
+                              ${isReadOnly ?
+                                'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' :
+                                'bg-white'
+                              }
+                            `}
+                            placeholder="Add work description (max 150 chars optional) "
                           />
                         </div>
                       </td>

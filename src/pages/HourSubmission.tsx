@@ -13,6 +13,7 @@ import type { TimesheetWithDetails } from '../types';
 
 interface TimesheetWithProject extends Timesheet {
   project: Project;
+  work_description: any;
 }
 
 interface ApprovedWeekDialog {
@@ -49,7 +50,7 @@ const ApprovedWeekWarning: React.FC<{
           <div className="text-center">
             <h3 className="text-lg font-semibold mb-2">Week Already Approved</h3>
             <p className="text-gray-600">
-              Hours for Week {weekNumber}, {year} have already been submitted and approved. 
+              Hours for Week {weekNumber}, {year} have already been submitted and approved.
               No changes can be made to approved timesheets.
             </p>
           </div>
@@ -88,6 +89,7 @@ export const HourSubmission = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [projects, setProjects] = useState<Project[]>([]);
   const [hours, setHours] = useState<Record<string, Record<string, number>>>({});
+  const [workDescription, setWorkDescription] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -107,7 +109,7 @@ export const HourSubmission = () => {
   const [timesheetStatus, setTimesheetStatus] = useState<'draft' | 'submitted' | 'approved' | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
-  
+
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekNumber = parseInt(format(weekStart, 'w'));
@@ -116,7 +118,7 @@ export const HourSubmission = () => {
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
 
   const toggleTimesheet = (timesheetId: string) => {
-    setExpandedTimesheets(prev => 
+    setExpandedTimesheets(prev =>
       prev.includes(timesheetId)
         ? prev.filter(id => id !== timesheetId)
         : [...prev, timesheetId]
@@ -124,7 +126,7 @@ export const HourSubmission = () => {
   };
 
   const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => 
+    setExpandedGroups(prev =>
       prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
@@ -134,14 +136,14 @@ export const HourSubmission = () => {
   useEffect(() => {
     const currentDate = new Date();
     const currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-    
+
     // Get weeks for 6 months back and 6 months ahead
     const startDate = subMonths(currentWeekStart, 6);
     const endDate = addMonths(currentWeekStart, 6);
-    
+
     const weeks = [];
     let currentWeek = startDate;
-    
+
     while (currentWeek <= endDate) {
       weeks.push({
         weekNumber: parseInt(format(currentWeek, 'w')),
@@ -150,7 +152,7 @@ export const HourSubmission = () => {
       });
       currentWeek = addWeeks(currentWeek, 1);
     }
-    
+
     setAvailableWeeks(weeks);
   }, []);
 
@@ -200,6 +202,7 @@ export const HourSubmission = () => {
 
         if (timesheets && timesheets.length > 0) {
           const hoursData: Record<string, Record<string, number>> = {};
+          const workData: any = {};
           timesheets.forEach(timesheet => {
             hoursData[timesheet.project_id] = {
               monday_hours: timesheet.monday_hours || 0,
@@ -208,11 +211,14 @@ export const HourSubmission = () => {
               thursday_hours: timesheet.thursday_hours || 0,
               friday_hours: timesheet.friday_hours || 0,
             };
+            workData[timesheet.project_id] = timesheet.work_description || {}
           });
+          setWorkDescription(workData)
           setHours(hoursData);
           setTimesheetStatus(timesheets[0].status);
         } else {
           setHours({});
+          setWorkDescription({})
           setTimesheetStatus(null);
         }
 
@@ -247,8 +253,18 @@ export const HourSubmission = () => {
     }));
   };
 
+  const handleNoteChange = (projectId: string, day: string, value: string) => {
+    setWorkDescription((prev: { [x: string]: any; }) => ({
+      ...prev,
+      [projectId]: {
+        ...prev[projectId],
+        [`${day}`]: value,
+      },
+    }));
+  };
+
   const validateHours = () => {
-    const hasHours = Object.values(hours).some(projectHours => 
+    const hasHours = Object.values(hours).some(projectHours =>
       Object.values(projectHours).some(value => value > 0)
     );
 
@@ -262,32 +278,32 @@ export const HourSubmission = () => {
 
   const handleSubmit = async () => {
     if (!user) return;
-    
+
     setError('');
     setSuccess(false);
-    
+
     if (!validateHours()) return;
-    
+
     // Show confirmation dialog instead of submitting directly
     setShowConfirmation(true);
   };
 
   const confirmSubmit = async () => {
     if (!user) return;
-    
+
     try {
       setSaving(true);
-      
+
       // Get all projects with hours entered
       const projectsWithHours = Object.entries(hours)
         .filter(([_, projectHours]) => Object.values(projectHours).some(value => value > 0))
         .map(([projectId]) => projectId);
-      
+
       if (projectsWithHours.length === 0) {
         setError('Please enter hours for at least one project');
         return;
       }
-      
+
       // Submit timesheets
       for (const [projectId, projectHours] of Object.entries(hours)) {
         if (Object.values(projectHours).some(value => value > 0)) {
@@ -305,6 +321,7 @@ export const HourSubmission = () => {
             friday_hours: projectHours.friday_hours || 0,
             status: 'pending',
             submitted_at: new Date().toISOString(),
+            work_description: workDescription?.[projectId] || {},
             month_hours: splitTimesheetByMonth({
               user_id: user.id,
               project_id: projectId,
@@ -314,17 +331,18 @@ export const HourSubmission = () => {
               tuesday_hours: projectHours.tuesday_hours || 0,
               wednesday_hours: projectHours.wednesday_hours || 0,
               thursday_hours: projectHours.thursday_hours || 0,
-              friday_hours: projectHours.friday_hours || 0
+              friday_hours: projectHours.friday_hours || 0,
+              project: undefined
             }, 'pending')
           };
-          
+
           if (editingTimesheet && editingTimesheet.project_id === projectId) {
             // Update existing timesheet
             const { error } = await supabase
               .from('timesheets')
               .update(timesheetData)
               .eq('id', editingTimesheet.id);
-              
+
             if (error) {
               console.error('Update error:', error);
               throw new Error(`Failed to update timesheet: ${error.message}`);
@@ -339,14 +357,14 @@ export const HourSubmission = () => {
               .eq('week_number', weekNumber)
               .eq('year', year)
               .single();
-            
+
             if (existingTimesheet) {
               // Update existing timesheet
               const { error } = await supabase
                 .from('timesheets')
                 .update(timesheetData)
                 .eq('id', existingTimesheet.id);
-                
+
               if (error) {
                 console.error('Update error:', error);
                 throw new Error(`Failed to update timesheet: ${error.message}`);
@@ -356,7 +374,7 @@ export const HourSubmission = () => {
               const { error } = await supabase
                 .from('timesheets')
                 .insert(timesheetData);
-                
+
               if (error) {
                 console.error('Insert error:', error);
                 throw new Error(`Failed to insert timesheet: ${error.message}`);
@@ -365,7 +383,7 @@ export const HourSubmission = () => {
           }
         }
       }
-      
+
       // Immediately fetch the updated timesheets to refresh the list
       const { data: updatedTimesheets, error: fetchError } = await supabase
         .from('timesheets')
@@ -373,20 +391,21 @@ export const HourSubmission = () => {
         .eq('user_id', user.id)
         .eq('year', format(selectedMonth, 'yyyy'))
         .order('week_number', { ascending: false });
-      
+
       if (fetchError) throw fetchError;
-      
+
       setSubmittedTimesheets(updatedTimesheets as TimesheetWithProject[] || []);
       setShowConfirmation(false);
       setSuccess(true);
       setHours({});
+      setWorkDescription({})
       setEditingTimesheet(null);
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(false);
       }, 3000);
-      
+
     } catch (error) {
       console.error('Error submitting timesheet:', error);
       setError(error instanceof Error ? error.message : 'Failed to submit timesheet');
@@ -398,11 +417,11 @@ export const HourSubmission = () => {
   const getWeekDays = (startDate: Date) => {
     const days = [];
     const weekStart = startOfWeek(startDate, { weekStartsOn: 1 }); // Start from Monday
-    
+
     for (let i = 0; i < 5; i++) { // Only get Monday to Friday
       days.push(addDays(weekStart, i));
     }
-    
+
     return days;
   };
 
@@ -410,7 +429,7 @@ export const HourSubmission = () => {
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
     const weekNumber = parseInt(format(weekStart, 'w'));
     const year = parseInt(format(weekStart, 'yyyy'));
-    
+
     setSelectedDate(weekStart);
     setIsWeekPickerOpen(false);
   };
@@ -439,19 +458,20 @@ export const HourSubmission = () => {
         friday_hours: timesheet.friday_hours || 0,
       },
     });
+    setWorkDescription({ [timesheet.project_id]: timesheet?.work_description || {} })
     setEditingTimesheet(timesheet);
     toast.success('Now editing timesheet');
   };
 
   const processTimesheets = (timesheets: any[]) => {
     const groups = new Map();
-    
+
     timesheets.forEach(timesheet => {
       // Add null checks to prevent undefined errors
       if (!timesheet?.user) return;
-      
+
       const key = `${timesheet.user.id}-${timesheet.week_number}-${timesheet.year}`;
-      
+
       if (!groups.has(key)) {
         groups.set(key, {
           userId: timesheet.user.id,
@@ -463,12 +483,12 @@ export const HourSubmission = () => {
           timesheets: []
         });
       }
-      
+
       const group = groups.get(key);
       group.totalHours += calculateTotalHours(timesheet);
       group.timesheets.push(timesheet);
     });
-    
+
     return Array.from(groups.values());
   };
 
@@ -489,7 +509,7 @@ export const HourSubmission = () => {
       <div className="flex flex-col space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">Submit Hours</h1>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -500,7 +520,7 @@ export const HourSubmission = () => {
             >
               <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
-            
+
             <button
               onClick={() => setIsWeekPickerOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -513,7 +533,7 @@ export const HourSubmission = () => {
                 </span>
               </span>
             </button>
-            
+
             <button
               onClick={() => {
                 const newDate = addWeeks(selectedDate, 1);
@@ -553,6 +573,8 @@ export const HourSubmission = () => {
           hours={hours}
           weekDays={weekDays}
           handleHourChange={handleHourChange}
+          handleNoteChange={handleNoteChange}
+          workDescription={workDescription}
           isReadOnly={timesheetStatus === 'approved'}
         />
 
@@ -637,11 +659,11 @@ export const HourSubmission = () => {
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              
+
               <span className="text-lg font-medium">
                 {format(currentMonth, 'MMMM yyyy')}
               </span>
-              
+
               <button
                 onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                 className="p-2 hover:bg-gray-100 rounded-lg"
@@ -649,18 +671,18 @@ export const HourSubmission = () => {
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            
+
             <div className="grid grid-cols-7 gap-1">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                 <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
                   {day}
                 </div>
               ))}
-              
+
               {generateCalendarDays(currentMonth).map(day => {
                 const isSelected = isSameWeek(selectedDate, day, { weekStartsOn: 1 });
                 const isCurrentMonth = isSameMonth(currentMonth, day);
-                
+
                 return (
                   <button
                     key={day.toString()}
@@ -716,10 +738,10 @@ export const HourSubmission = () => {
           // Clear hours for approved projects
           const updatedHours = { ...hours };
           Object.keys(updatedHours).forEach(projectId => {
-            if (submittedTimesheets.some(ts => 
-              ts.project_id === projectId && 
-              ts.week_number === weekNumber && 
-              ts.year === year && 
+            if (submittedTimesheets.some(ts =>
+              ts.project_id === projectId &&
+              ts.week_number === weekNumber &&
+              ts.year === year &&
               ts.status === 'approved'
             )) {
               delete updatedHours[projectId];

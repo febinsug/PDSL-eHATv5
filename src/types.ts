@@ -42,6 +42,7 @@ export interface Timesheet {
   month_hours?: Record<string, MonthEntry> | null;
   is_split_week?: boolean | null;
   project:any;
+  work_description?: any;
 }
 
 export interface TimesheetWithDetails extends Timesheet {
