@@ -265,7 +265,8 @@ export const HourSubmission = () => {
 
   const validateHours = () => {
     const hasHours = Object.values(hours).some(projectHours =>
-      Object.values(projectHours).some(value => value > 0)
+
+      Object.values(projectHours).some(value => value >= 0)
     );
 
     if (!hasHours) {
@@ -296,7 +297,7 @@ export const HourSubmission = () => {
 
       // Get all projects with hours entered
       const projectsWithHours = Object.entries(hours)
-        .filter(([_, projectHours]) => Object.values(projectHours).some(value => value > 0))
+        .filter(([_, projectHours]) => Object.values(projectHours).some(value => value >= 0))
         .map(([projectId]) => projectId);
 
       if (projectsWithHours.length === 0) {
@@ -306,7 +307,7 @@ export const HourSubmission = () => {
 
       // Submit timesheets
       for (const [projectId, projectHours] of Object.entries(hours)) {
-        if (Object.values(projectHours).some(value => value > 0)) {
+        if (Object.values(projectHours).some(value => value >= 0)) {
           // Create the timesheet data object with the correct field names
           // Omit total_hours as it seems to be calculated by a trigger or default value
           const timesheetData = {
@@ -336,17 +337,35 @@ export const HourSubmission = () => {
             }, 'pending')
           };
 
+          const totalHours = timesheetData.monday_hours + timesheetData.tuesday_hours + timesheetData.wednesday_hours + timesheetData.thursday_hours + timesheetData.friday_hours;
+
           if (editingTimesheet && editingTimesheet.project_id === projectId) {
             // Update existing timesheet
-            const { error } = await supabase
-              .from('timesheets')
-              .update(timesheetData)
-              .eq('id', editingTimesheet.id);
 
-            if (error) {
-              console.error('Update error:', error);
-              throw new Error(`Failed to update timesheet: ${error.message}`);
+            // if all hour sum of editing timesheet is 0 then delete timesheet else edit timeseheet
+
+            if (totalHours === 0) {
+              const { error: deleteError } = await supabase
+                .from('timesheets')
+                .delete()
+                .eq('id', editingTimesheet.id);
+
+              if (deleteError) {
+                console.error('Update error:', deleteError);
+                throw new Error(`Failed to update timesheet: ${deleteError.message}`);
+              }
+            } else {
+              const { error } = await supabase
+                .from('timesheets')
+                .update(timesheetData)
+                .eq('id', editingTimesheet.id);
+
+              if (error) {
+                console.error('Update error:', error);
+                throw new Error(`Failed to update timesheet: ${error.message}`);
+              }
             }
+
           } else {
             // Check if a timesheet already exists for this week/project
             const { data: existingTimesheet } = await supabase
@@ -360,14 +379,28 @@ export const HourSubmission = () => {
 
             if (existingTimesheet) {
               // Update existing timesheet
-              const { error } = await supabase
-                .from('timesheets')
-                .update(timesheetData)
-                .eq('id', existingTimesheet.id);
 
-              if (error) {
-                console.error('Update error:', error);
-                throw new Error(`Failed to update timesheet: ${error.message}`);
+              // if all hour sum of editing timesheet is 0 then delete timesheet else edit timeseheet
+              if (totalHours === 0) {
+                const { error: deleteError } = await supabase
+                  .from('timesheets')
+                  .delete()
+                  .eq('id', existingTimesheet.id);
+
+                if (deleteError) {
+                  console.error('Update error:', deleteError);
+                  throw new Error(`Failed to update timesheet: ${deleteError.message}`);
+                }
+              } else {
+                const { error } = await supabase
+                  .from('timesheets')
+                  .update(timesheetData)
+                  .eq('id', existingTimesheet.id);
+
+                if (error) {
+                  console.error('Update error:', error);
+                  throw new Error(`Failed to update timesheet: ${error.message}`);
+                }
               }
             } else {
               // Insert new timesheet
