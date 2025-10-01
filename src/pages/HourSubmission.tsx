@@ -172,7 +172,8 @@ export const HourSubmission = () => {
             .from('projects')
             .select('*')
             .in('id', projectIds)
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .order('name', { ascending: true });
 
           setProjects(projects || []);
         }
