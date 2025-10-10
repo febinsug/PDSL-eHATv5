@@ -445,7 +445,7 @@ export const People = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">People Management</h1>
         <div className="flex gap-3">
-          <button
+          {/* <button
             onClick={() => {
               setEditingUser(null);
               setShowUserForm(true);
@@ -454,7 +454,7 @@ export const People = () => {
           >
             <UserPlus className="w-5 h-5" />
             Add User
-          </button>
+          </button> */}
           <button
             onClick={() => setShowDepartmentList(!showDepartmentList)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"

@@ -644,7 +644,7 @@ export const Projects = () => {
                 </button>
               ) : (
                 <button
-                  onClick={() => setShowForm(true)}
+                  // onClick={() => setShowForm(true)}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1732ca] text-white rounded-lg hover:bg-[#1732ca]/90"
                 >
                   <Plus className="w-4 h-4" />
