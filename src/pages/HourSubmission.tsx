@@ -626,7 +626,7 @@ export const HourSubmission = () => {
           </div>
         )}
 
-        <div className="flex justify-end mt-6">
+        {/* <div className="flex justify-end mt-6">
           <button
             onClick={handleSubmit}
             disabled={timesheetStatus === 'approved'}
@@ -634,7 +634,7 @@ export const HourSubmission = () => {
           >
             Submit Hours
           </button>
-        </div>
+        </div> */}
 
         <div className="mt-8">
           <div className="bg-white rounded-lg shadow-lg border border-gray-200">
