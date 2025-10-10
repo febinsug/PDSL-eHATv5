@@ -10,6 +10,7 @@ import { filterTimesheetsByDateRange } from '../../utils/filterTimeSheetByDateRa
 import { ProjectDistribution } from '../overview/ProjectDistribution';
 import { PROJECT_COLORS } from '../../utils/constants';
 import { exportUserTimesheetByProjectsToExcel } from '../../utils/exportUserTimesheetByProject';
+import { exportUserTimesheetByProjectsToExcelAndJSON } from '../../utils/exportUserTimesheetByProjectWithJSONDataAlso';
 interface ProjectViewModalProps {
   user: User & { projects?: Project[] };
   onClose: () => void;
@@ -310,6 +311,7 @@ export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({ user, onClos
       dateRange.end = format(customDate.end, 'yyyy-MM-dd');
     }
     exportUserTimesheetByProjectsToExcel(projectArr, user, dateRange)
+    // exportUserTimesheetByProjectsToExcelAndJSON(projectArr, user, dateRange)
   }
   const checkForSearchProject = (proj: any) => {
     return (
